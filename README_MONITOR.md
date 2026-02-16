@@ -26,6 +26,15 @@ Template file:
 
 - `env/sjtb.env.example`
 
+### monitor 二次查询（合并后再发短信）
+
+`monitor_wcnr_jq.py` 默认会对 `/dsjfx/case/list` 做 2 次查询，并将两次结果按 `caseNo` 合并去重后再统一发送短信。
+可通过以下环境变量调整：
+
+- `MONITOR_SECOND_QUERY_ENABLED`：是否启用第二次查询（默认启用）
+- `MONITOR_SECOND_QUERY_NEWORI_SUBCLASS_NO`：第二次查询的 `newOriCharaSubclassNo`
+- `MONITOR_SECOND_QUERY_CASE_MARK_NO`：第二次查询的 `caseMarkNo`（默认空表示不限定“未成年人”标记）
+
 Main runtime call format:
 
 ```bash
