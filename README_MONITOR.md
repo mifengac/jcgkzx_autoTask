@@ -1,0 +1,75 @@
+# sjtb:1.3 Offline Delivery and Deployment
+
+This directory packages 4 scripts into one image: `sjtb:1.3`.
+Production scheduling uses host `crontab` + `sudo docker run --rm`.
+
+## 1. Task Entrypoints
+
+- `monitor` -> `monitor_wcnr_jq.py` (every 10 minutes)
+- `dxpt0123` -> `0123_dxpt_ceshi.py` (every 30 minutes)
+- `zq` -> `zq_kshddpt_dsjfx_jq.py` (every 3 hours at minute 0)
+- `multi` -> `data_scraper_multi.py` (every 3 hours at minute 30)
+
+Container entrypoint is `task_runner.py`, usage:
+
+```bash
+docker run --rm sjtb:1.3 monitor
+docker run --rm sjtb:1.3 dxpt0123
+docker run --rm sjtb:1.3 zq
+docker run --rm sjtb:1.3 multi
+```
+
+## 2. Environment File
+
+Use `/opt/sjtb/env/sjtb.env` on the target server.
+Template file:
+
+- `env/sjtb.env.example`
+
+Main runtime call format:
+
+```bash
+sudo docker run --rm \
+  --env-file /opt/sjtb/env/sjtb.env \
+  -e TZ=Asia/Shanghai \
+  -v /opt/sjtb/logs:/app/logs \
+  sjtb:1.3 monitor
+```
+
+## 3. Build and Offline Transfer
+
+On online machine:
+
+```bash
+cd sjtb
+docker build -t sjtb:1.3 .
+docker save sjtb:1.3 -o /path/to/usb/sjtb_1.3.tar
+```
+
+On internal CentOS Stream 10 server:
+
+```bash
+sudo docker load -i /path/to/usb/sjtb_1.3.tar
+sudo mkdir -p /opt/sjtb/env /opt/sjtb/logs
+```
+
+Copy and edit env file:
+
+```bash
+cp /path/to/repo/sjtb/env/sjtb.env.example /opt/sjtb/env/sjtb.env
+```
+
+## 4. Host Crontab (Recommended)
+
+Use `flock` to prevent re-entry:
+
+```cron
+*/10 * * * * flock -n /var/lock/sjtb_monitor.lock sudo docker run --rm --name sjtb_monitor --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 monitor >> /opt/sjtb/logs/cron_monitor.log 2>&1
+*/30 * * * * flock -n /var/lock/sjtb_0123.lock sudo docker run --rm --name sjtb_0123 --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 dxpt0123 >> /opt/sjtb/logs/cron_0123.log 2>&1
+0 */3 * * * flock -n /var/lock/sjtb_zq.lock sudo docker run --rm --name sjtb_zq --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 zq >> /opt/sjtb/logs/cron_zq.log 2>&1
+30 */3 * * * flock -n /var/lock/sjtb_multi.lock sudo docker run --rm --name sjtb_multi --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 multi >> /opt/sjtb/logs/cron_multi.log 2>&1
+```
+
+## 5. Optional docker-compose (Development Only)
+
+`docker-compose.yml` is only for local development/testing and is not the production scheduler.

@@ -1,0 +1,7 @@
+# Host crontab template for sjtb:1.3 (CentOS Stream 10)
+# Install with: crontab -e
+
+*/10 * * * * flock -n /var/lock/sjtb_monitor.lock sudo docker run --rm --name sjtb_monitor --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 monitor >> /opt/sjtb/logs/cron_monitor.log 2>&1
+*/30 * * * * flock -n /var/lock/sjtb_0123.lock sudo docker run --rm --name sjtb_0123 --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 dxpt0123 >> /opt/sjtb/logs/cron_0123.log 2>&1
+0 */3 * * * flock -n /var/lock/sjtb_zq.lock sudo docker run --rm --name sjtb_zq --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 zq >> /opt/sjtb/logs/cron_zq.log 2>&1
+30 */3 * * * flock -n /var/lock/sjtb_multi.lock sudo docker run --rm --name sjtb_multi --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -v /opt/sjtb/logs:/app/logs sjtb:1.3 multi >> /opt/sjtb/logs/cron_multi.log 2>&1
