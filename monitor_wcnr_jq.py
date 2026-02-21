@@ -6,7 +6,7 @@ Monitor script for juvenile case notifications.
 Behavior:
 1. Login and query case records from monitor API.
 2. Resolve recipient mobiles (Kingbase first, optional SMS_MOBILES fallback).
-3. Deduplicate by caseNo + mobile + DEDUP_HOURS and send SMS through Oracle.
+3. Deduplicate by caseNo + mobile and send SMS through Oracle.
 
 Key environment variables:
 - LOGIN_USERNAME / LOGIN_PASSWORD
@@ -16,7 +16,6 @@ Key environment variables:
 - KINGBASE_HOST / KINGBASE_PORT / KINGBASE_DBNAME / KINGBASE_USER / KINGBASE_PASSWORD
 - KG_TARGET_XQDM (default: 445300)
 - SMS_MOBILES (fallback only when Kingbase is unavailable)
-- DEDUP_HOURS (default: 12)
 """
 
 import os
@@ -111,7 +110,6 @@ class Config:
 
     # 短信配置
     sms_mobiles: List[str] = field(default_factory=list)
-    dedup_hours: int = 12
     sms_userid: str = ""
     sms_password: str = ""
     sms_userport: str = ""
@@ -246,7 +244,6 @@ def load_config_from_env() -> Config:
         oracle_password=os.environ.get("ORACLE_PASSWORD", ""),
         oracle_client_lib_dir=os.environ.get("ORACLE_CLIENT_LIB_DIR"),
         sms_mobiles=mobiles,
-        dedup_hours=int(os.environ.get("DEDUP_HOURS", "12")),
         sms_userid=(os.environ.get("SMS_USERID") or "").strip(),
         sms_password=(os.environ.get("SMS_PASSWORD") or "").strip(),
         sms_userport=(os.environ.get("SMS_USERPORT") or "").strip(),
@@ -647,9 +644,6 @@ class WcnrJqMonitor:
         查询yfgadb.dfsdl表中是否存在相同eid(caseNo)和mobile的记录
         返回: True表示已存在（不发送），False表示不存在（可发送）
         """
-        dedup_delta = timedelta(hours=self.config.dedup_hours)
-        cutoff_time = datetime.now() - dedup_delta
-
         try:
             with conn.cursor() as cur:
                 sql = """
@@ -657,12 +651,10 @@ class WcnrJqMonitor:
                     FROM yfgadb.dfsdl
                     WHERE eid = :eid
                     AND mobile = :mobile
-                    AND deadtime >= :cutoff_time
                 """
                 cur.execute(sql, {
                     "eid": case_no,
-                    "mobile": mobile,
-                    "cutoff_time": cutoff_time
+                    "mobile": mobile
                 })
                 count = cur.fetchone()[0]
                 return count > 0
