@@ -38,6 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/logs
 
 COPY monitor_wcnr_jq.py /app/
+COPY 0306jsbrjq_monitor.py /app/
 COPY zq_kshddpt_dsjfx_jq.py /app/
 COPY data_scraper_multi.py /app/
 COPY 0123_dxpt_ceshi.py /app/

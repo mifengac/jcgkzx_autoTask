@@ -8,6 +8,7 @@ import sys
 
 TASK_TO_SCRIPT = {
     "monitor": "/app/monitor_wcnr_jq.py",
+    "jsbrjq": "/app/0306jsbrjq_monitor.py",
     "zq": "/app/zq_kshddpt_dsjfx_jq.py",
     "multi": "/app/data_scraper_multi.py",
     "dxpt0123": "/app/0123_dxpt_ceshi.py",
@@ -33,13 +34,13 @@ def build_command(task: str) -> list[str]:
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: python /app/task_runner.py [monitor|zq|multi|dxpt0123]", file=sys.stderr)
+        print("Usage: python /app/task_runner.py [monitor|jsbrjq|zq|multi|dxpt0123]", file=sys.stderr)
         return 2
 
     task = sys.argv[1].strip()
     if task not in TASK_TO_SCRIPT:
         print(f"Unknown task: {task}", file=sys.stderr)
-        print("Valid tasks: monitor, zq, multi, dxpt0123", file=sys.stderr)
+        print("Valid tasks: monitor, jsbrjq, zq, multi, dxpt0123", file=sys.stderr)
         return 2
 
     command = build_command(task)
