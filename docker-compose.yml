@@ -1,0 +1,14 @@
+services:
+  autotask:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jcgkzx-autotask:latest
+    container_name: jcgkzx-autotask
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./uploads:/app/uploads

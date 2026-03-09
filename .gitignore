@@ -1,4 +1,4 @@
-# Oracle Instant Client 大文件
+# Oracle Instant Client large files
 instantclient_11_2/libociei.so
 instantclient_11_2/libclntsh.so.11.1
 
@@ -10,9 +10,13 @@ __pycache__/
 .Python
 *.so
 
-# 环境变量文件
+# Environments
 .env
+.venv/
 
-# Docker 镜像
+# Uploads
+uploads/
+
+# Docker archives
 tar
 *.tar

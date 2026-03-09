@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+from functools import lru_cache
+import json
+from pathlib import Path
+from urllib.parse import quote_plus
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    app_name: str = "JCGKZX AutoTask API"
+    app_env: str = "development"
+    app_host: str = "0.0.0.0"
+    app_port: int = 8000
+
+    database_url: str | None = None
+    db_schema: str = "jcgkzx_autotask"
+    db_echo: bool = False
+    auto_create_tables: bool = False
+
+    kingbase_host: str | None = Field(default=None, alias="KINGBASE_HOST")
+    kingbase_port: int | None = Field(default=None, alias="KINGBASE_PORT")
+    kingbase_dbname: str | None = Field(default=None, alias="KINGBASE_DBNAME")
+    kingbase_user: str | None = Field(default=None, alias="KINGBASE_USER")
+    kingbase_password: str | None = Field(default=None, alias="KINGBASE_PASSWORD")
+
+    upload_root: Path = Path("uploads")
+    script_upload_dirname: str = "scripts"
+    extract_root_dirname: str = "extracted"
+
+    oracle_dsn: str | None = Field(default=None, alias="ORACLE_DSN")
+    oracle_user: str | None = Field(default=None, alias="ORACLE_USER")
+    oracle_password: str | None = Field(default=None, alias="ORACLE_PASSWORD")
+    oracle_client_lib_dir: str | None = Field(default=None, alias="ORACLE_CLIENT_LIB_DIR")
+    oracle_thick_mode: bool = Field(default=True, alias="ORACLE_THICK_MODE")
+
+    sms_userid: str | None = Field(default=None, alias="SMS_USERID")
+    sms_password: str | None = Field(default=None, alias="SMS_PASSWORD")
+    sms_userport: str | None = Field(default=None, alias="SMS_USERPORT")
+    sms_business_ports_json: str = Field(
+        default='{"治安基础管控中心":"0006"}',
+        alias="SMS_BUSINESS_PORTS_JSON",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
+
+    @field_validator("kingbase_port", mode="before")
+    @classmethod
+    def empty_port_to_none(cls, value: object) -> object:
+        if value == "":
+            return None
+        return value
+
+    @property
+    def sqlalchemy_database_uri(self) -> str:
+        if self.database_url:
+            return self.database_url
+
+        missing = [
+            name
+            for name, value in {
+                "KINGBASE_HOST": self.kingbase_host,
+                "KINGBASE_PORT": self.kingbase_port,
+                "KINGBASE_DBNAME": self.kingbase_dbname,
+                "KINGBASE_USER": self.kingbase_user,
+                "KINGBASE_PASSWORD": self.kingbase_password,
+            }.items()
+            if value in (None, "")
+        ]
+        if missing:
+            raise RuntimeError(
+                "Missing database settings. Provide DATABASE_URL or set: "
+                + ", ".join(missing)
+            )
+
+        password = quote_plus(str(self.kingbase_password))
+        return (
+            f"postgresql+psycopg2://{self.kingbase_user}:{password}"
+            f"@{self.kingbase_host}:{self.kingbase_port}/{self.kingbase_dbname}"
+        )
+
+    @property
+    def script_upload_dir(self) -> Path:
+        return self.upload_root / self.script_upload_dirname
+
+    @property
+    def script_extract_dir(self) -> Path:
+        return self.upload_root / self.extract_root_dirname
+
+    @property
+    def sms_business_ports(self) -> dict[str, str]:
+        try:
+            parsed = json.loads(self.sms_business_ports_json)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return {str(key): str(value) for key, value in parsed.items()}
+        return {}
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()
