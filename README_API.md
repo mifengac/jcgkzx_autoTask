@@ -27,6 +27,13 @@ uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 cp .env.example .env
 ```
 
+如果服务跑在 Docker 里：
+
+- 不要把 `KINGBASE_HOST` 写成 `127.0.0.1`
+- `127.0.0.1` 在容器里只代表容器自己
+- 人大金仓如果在宿主机上，填 `host.docker.internal`
+- 人大金仓如果在远端，填真实 IP，例如 `10.45.100.148`
+
 启动：
 
 ```bash
@@ -88,6 +95,7 @@ docker compose down
 - `docker-compose.yml` 统一启动前后端一体化服务
 - `uploads/` 挂载到宿主机，脚本包和解压目录会持久化
 - 容器内默认 Oracle 客户端路径是 `/opt/oracle/instantclient_11_2`
+- 已增加 `host.docker.internal:host-gateway`，便于容器访问宿主机数据库
 
 ## 5. 纯离线运行说明
 

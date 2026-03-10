@@ -27,8 +27,11 @@ class TaskSchedulerService:
             return
         self.scheduler.start()
         self.started = True
-        self.reload_jobs()
-        LOGGER.info("Task scheduler started.")
+        try:
+            self.reload_jobs()
+            LOGGER.info("Task scheduler started.")
+        except Exception:
+            LOGGER.exception("Task scheduler started in degraded mode: failed to preload jobs.")
 
     def shutdown(self) -> None:
         if not self.started:
