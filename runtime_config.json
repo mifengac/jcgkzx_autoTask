@@ -17,24 +17,6 @@
       "dedup_hours": 12,
       "dxpt_start_date": "2026-03-01",
       "dry_run": true
-    },
-    "comments": {
-      "kingbase_host": "Kingbase host or IP address.",
-      "kingbase_port": "Kingbase service port.",
-      "kingbase_dbname": "Kingbase database name.",
-      "kingbase_user": "Kingbase login username.",
-      "kingbase_password": "Kingbase login password.",
-      "oracle_dsn": "Oracle DSN in host:port/service_name format.",
-      "oracle_user": "Oracle login username.",
-      "oracle_password": "Oracle login password.",
-      "oracle_client_lib_dir": "Oracle Instant Client 11.2 directory for thick mode.",
-      "sms_userid": "SMS gateway userid written into yfgadb.dfsdl.userid.",
-      "sms_password": "SMS gateway password written into yfgadb.dfsdl.password.",
-      "sms_userport": "SMS business port written into yfgadb.dfsdl.userport.",
-      "sms_mobiles": "Optional fixed mobile list used as fallback or extra recipients.",
-      "dedup_hours": "Deduplication window in hours for the same eid and mobile.",
-      "dxpt_start_date": "Start date used to replace the hard-coded SQL date, format YYYY-MM-DD.",
-      "dry_run": "Set true to test the task without sending real SMS."
     }
   },
   "data_scraper_multi.py": {
@@ -56,25 +38,6 @@
       "multi_max_workers": 31,
       "multi_request_timeout": 180,
       "data_multi_task_enabled": true
-    },
-    "comments": {
-      "disable_sms": "Disable SMS sending for this data import task.",
-      "multi_mode": "Write mode: append for upsert, replace for full truncate and reload.",
-      "multi_login_url": "Login endpoint used to obtain the session cookie.",
-      "multi_login_username": "Login username for the source system.",
-      "multi_login_password": "Login password for the source system.",
-      "multi_api_url_duty": "Duty schedule API endpoint to fetch source data.",
-      "multi_db_host": "Kingbase host or IP address.",
-      "multi_db_port": "Kingbase service port.",
-      "multi_db_name": "Kingbase database name.",
-      "multi_db_user": "Kingbase login username.",
-      "multi_db_password": "Kingbase login password.",
-      "multi_db_sslmode": "Kingbase SSL mode, usually disable in the intranet.",
-      "multi_begin_days_ago": "Start offset in days before today for scheduleDate generation.",
-      "multi_end_days_ago": "End offset in days before today for scheduleDate generation.",
-      "multi_max_workers": "Maximum concurrent HTTP workers.",
-      "multi_request_timeout": "HTTP timeout in seconds for each request.",
-      "data_multi_task_enabled": "Enable or disable all built-in sub tasks."
     }
   },
   "zq_kshddpt_dsjfx_jq.py": {
@@ -92,21 +55,6 @@
       "zq_begin_days_ago": 3,
       "zq_page_size": 99999,
       "zq_page_num": 1
-    },
-    "comments": {
-      "disable_sms": "Disable SMS sending for this data collection task.",
-      "zq_login_url": "Login endpoint for the dsjfx source system.",
-      "zq_login_username": "Login username for the dsjfx source system.",
-      "zq_login_password": "Login password for the dsjfx source system.",
-      "zq_api_url": "Case list API endpoint for source data collection.",
-      "zq_db_host": "Kingbase host or IP address.",
-      "zq_db_port": "Kingbase service port.",
-      "zq_db_name": "Kingbase database name.",
-      "zq_db_user": "Kingbase login username.",
-      "zq_db_password": "Kingbase login password.",
-      "zq_begin_days_ago": "Number of days before today used as the query start date.",
-      "zq_page_size": "Page size sent to the source API.",
-      "zq_page_num": "Page number sent to the source API."
     }
   },
   "monitor_wcnr_jq.py": {
@@ -131,28 +79,17 @@
       "sms_mobiles": [],
       "monitor_second_query_newori_subclass_no": "",
       "monitor_second_query_case_mark_no": ""
-    },
-    "comments": {
-      "login_username": "Login username for the source system.",
-      "login_password": "Login password for the source system.",
-      "monitor_login_url": "Login endpoint for the monitor source system.",
-      "monitor_api_url": "Case list API endpoint for the monitor task.",
-      "oracle_dsn": "Oracle DSN in host:port/service_name format.",
-      "oracle_user": "Oracle login username.",
-      "oracle_password": "Oracle login password.",
-      "oracle_client_lib_dir": "Oracle Instant Client 11.2 directory for thick mode.",
-      "sms_userid": "SMS gateway userid written into yfgadb.dfsdl.userid.",
-      "sms_password": "SMS gateway password written into yfgadb.dfsdl.password.",
-      "sms_userport": "SMS business port written into yfgadb.dfsdl.userport.",
-      "kingbase_host": "Kingbase host or IP address used to resolve contact mobiles.",
-      "kingbase_port": "Kingbase service port.",
-      "kingbase_dbname": "Kingbase database name.",
-      "kingbase_user": "Kingbase login username.",
-      "kingbase_password": "Kingbase login password.",
-      "kg_target_xqdm": "Target xqdm used when loading contact mobiles from Kingbase.",
-      "sms_mobiles": "Fallback fixed mobile list used only when Kingbase is unavailable.",
-      "monitor_second_query_newori_subclass_no": "Optional filter value for the secondary query subclass code.",
-      "monitor_second_query_case_mark_no": "Optional filter value for the secondary query case mark code."
+    }
+  },
+    "0310jsbrjq_monitor.py": {
+    "template": {
+      "jsbrjq_login_username": "270378",
+      "jsbrjq_login_password": "jpx8hLPMyV7EDVX1p9d89Q==",
+      "jsbrjq_login_url": "http://68.253.2.111/dsjfx/login",
+      "jsbrjq_api_url": "http://68.253.2.111/dsjfx/case/list",
+      "jsbrjq_page_size": 100,
+      "jsbrjq_hours_back": 24,
+      "jsbrjq_max_pages": 10
     }
   }
 }

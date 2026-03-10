@@ -90,6 +90,12 @@ class Config:
     output_dir: str = "."
 
 
+def _runtime_to_string(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def setup_logger() -> logging.Logger:
     logger = logging.getLogger("0310jsbrjq_monitor")
     logger.setLevel(logging.INFO)
@@ -129,6 +135,49 @@ def load_config_from_env(args: argparse.Namespace) -> Config:
         hours_back=max(1, int(args.hours_back or DEFAULT_HOURS_BACK)),
         max_pages=max(1, int(args.max_pages or DEFAULT_MAX_PAGES)),
         output_dir=args.output_dir or ".",
+    )
+
+
+def load_config_from_runtime_config(runtime_config: dict[str, Any]) -> Config:
+    username = _runtime_to_string(
+        runtime_config.get("jsbrjq_login_username")
+        or runtime_config.get("login_username")
+        or runtime_config.get("username")
+        or os.environ.get("JSBRJQ_LOGIN_USERNAME")
+        or os.environ.get("LOGIN_USERNAME")
+    )
+    password = _runtime_to_string(
+        runtime_config.get("jsbrjq_login_password")
+        or runtime_config.get("login_password")
+        or runtime_config.get("password")
+        or os.environ.get("JSBRJQ_LOGIN_PASSWORD")
+        or os.environ.get("LOGIN_PASSWORD")
+    )
+    login_url = _runtime_to_string(
+        runtime_config.get("jsbrjq_login_url")
+        or runtime_config.get("monitor_login_url")
+        or runtime_config.get("login_url")
+        or DEFAULT_LOGIN_URL
+    ) or DEFAULT_LOGIN_URL
+    api_url = _runtime_to_string(
+        runtime_config.get("jsbrjq_api_url")
+        or runtime_config.get("monitor_api_url")
+        or runtime_config.get("api_url")
+        or DEFAULT_API_URL
+    ) or DEFAULT_API_URL
+    page_size = int(runtime_config.get("jsbrjq_page_size") or runtime_config.get("page_size") or DEFAULT_PAGE_SIZE)
+    hours_back = int(runtime_config.get("jsbrjq_hours_back") or runtime_config.get("hours_back") or DEFAULT_HOURS_BACK)
+    max_pages = int(runtime_config.get("jsbrjq_max_pages") or runtime_config.get("max_pages") or DEFAULT_MAX_PAGES)
+    output_dir = _runtime_to_string(runtime_config.get("output_dir") or ".") or "."
+    return Config(
+        login_username=username,
+        login_password=password,
+        login_url=login_url,
+        api_url=api_url,
+        page_size=max(1, page_size),
+        hours_back=max(1, hours_back),
+        max_pages=max(1, max_pages),
+        output_dir=output_dir,
     )
 
 
@@ -267,6 +316,15 @@ class JsbrJqQueryTester:
     def _record_replies_text(record: dict[str, Any]) -> str:
         return str(record.get("replies") or "").strip()
 
+    @staticmethod
+    def build_message_text(record: dict[str, Any]) -> str:
+        call_time = str(record.get("callTime") or record.get("occurTime") or "").strip()
+        duty_dept_name = str(record.get("dutyDeptName") or "").strip()
+        occur_address = str(record.get("occurAddress") or "").strip()
+        case_text = str(record.get("case_contents") or record.get("caseContents") or "").strip()
+        detail = case_text or "无警情正文"
+        return f"【涉精神警情】{call_time} {duty_dept_name} {detail} 地址:{occur_address}【基础管控中心】".strip()
+
     def filter_records(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         matched: list[dict[str, Any]] = []
         for record in rows:
@@ -349,6 +407,84 @@ class JsbrJqQueryTester:
         self.logger.info("Saved raw preview rows: %s", raw_path)
         self.logger.info("Finished: raw_count=%d matched_count=%d", len(all_rows), len(matched_rows))
         return 0
+
+
+def _platform_result_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for index, record in enumerate(records, start=1):
+        case_no = _runtime_to_string(record.get("caseNo") or record.get("case_no"))
+        call_time = _runtime_to_string(record.get("callTime") or record.get("occurTime"))
+        duty_dept_no = _runtime_to_string(record.get("dutyDeptNo") or record.get("brigadeNo"))
+        duty_dept_name = _runtime_to_string(record.get("dutyDeptName"))
+        event_id = case_no or f"jsbrjq_{index}_{int(time.time())}"
+
+        row = dict(record)
+        row.update(
+            {
+                "event_id": event_id,
+                "event_key": event_id,
+                "case_no": case_no or event_id,
+                "event_time": call_time,
+                "dwdm": duty_dept_no,
+                "sspcsdm": duty_dept_no,
+                "message_text": JsbrJqQueryTester.build_message_text(record),
+                "message_vars": {
+                    "case_no": case_no or event_id,
+                    "call_time": call_time,
+                    "duty_dept_name": duty_dept_name,
+                    "occur_address": _runtime_to_string(record.get("occurAddress")),
+                    "case_contents": _runtime_to_string(
+                        record.get("case_contents") or record.get("caseContents")
+                    ),
+                    "replies": _runtime_to_string(record.get("replies")),
+                },
+            }
+        )
+        results.append(row)
+    return results
+
+
+def run(context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    context = context or {}
+    runtime_config = context.get("runtime_config")
+    if not isinstance(runtime_config, dict):
+        runtime_config = {}
+
+    logger = setup_logger()
+    config = load_config_from_runtime_config(runtime_config)
+    if not config.login_username or not config.login_password:
+        raise RuntimeError("Missing login credentials in runtime_config.")
+
+    tester = JsbrJqQueryTester(config, logger)
+    login_ok, login_result = tester.login()
+    if not login_ok:
+        raise RuntimeError(f"Login failed: {json.dumps(login_result, ensure_ascii=False)}")
+
+    begin_date, end_date = build_time_range(config.hours_back)
+    all_rows: list[dict[str, Any]] = []
+    matched_rows: list[dict[str, Any]] = []
+
+    for page_num in range(1, config.max_pages + 1):
+        page_result = tester.fetch_page(page_num, begin_date, end_date)
+        if not page_result.get("ok"):
+            raise RuntimeError(
+                f"Query failed on page {page_num}: "
+                f"{json.dumps({k: v for k, v in page_result.items() if k != 'rows'}, ensure_ascii=False)}"
+            )
+
+        rows = page_result["rows"]
+        if not rows:
+            break
+
+        all_rows.extend(rows)
+        matched_rows.extend(tester.filter_records(rows))
+
+        if len(rows) < config.page_size:
+            break
+        if page_result.get("total") and len(all_rows) >= int(page_result["total"]):
+            break
+
+    return _platform_result_rows(matched_rows)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
