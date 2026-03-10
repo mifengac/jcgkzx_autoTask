@@ -13,9 +13,11 @@ import psycopg2
 import json
 import logging
 import os
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from uuid import uuid4
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +28,38 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+
+def _runtime_to_env_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(str(item) for item in value if item not in (None, ""))
+    return str(value)
+
+
+@contextmanager
+def _temporary_runtime_env(runtime_config: Dict[str, Any], mapping: Dict[str, str]):
+    original: Dict[str, Optional[str]] = {}
+    try:
+        for runtime_key, env_key in mapping.items():
+            if runtime_key not in runtime_config:
+                continue
+            original[env_key] = os.environ.get(env_key)
+            value = runtime_config.get(runtime_key)
+            if value in (None, ""):
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = _runtime_to_env_value(value)
+        yield
+    finally:
+        for env_key, value in original.items():
+            if value is None:
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = value
 def get_end_of_day() -> str:
     """
     获取当日的结束时间，格式为 'YYYY-MM-DD 23:59:59'
@@ -580,6 +614,93 @@ def load_config_from_env() -> Dict[str, Any]:
         },
     }
     return config
+
+
+def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    context = context or {}
+    runtime_config = context.get("runtime_config")
+    if not isinstance(runtime_config, dict):
+        runtime_config = {}
+
+    env_mapping = {
+        "zq_login_url": "ZQ_LOGIN_URL",
+        "zq_login_username": "ZQ_LOGIN_USERNAME",
+        "zq_login_password": "ZQ_LOGIN_PASSWORD",
+        "zq_api_url": "ZQ_API_URL",
+        "zq_db_host": "ZQ_DB_HOST",
+        "zq_db_port": "ZQ_DB_PORT",
+        "zq_db_name": "ZQ_DB_NAME",
+        "zq_db_user": "ZQ_DB_USER",
+        "zq_db_password": "ZQ_DB_PASSWORD",
+        "zq_db_schema": "ZQ_DB_SCHEMA",
+        "zq_begin_days_ago": "ZQ_BEGIN_DAYS_AGO",
+        "zq_page_size": "ZQ_PAGE_SIZE",
+        "zq_page_num": "ZQ_PAGE_NUM",
+    }
+
+    started_at = datetime.now()
+    with _temporary_runtime_env(runtime_config, env_mapping):
+        config = load_config_from_env()
+        scraper = JingqingZhuaqu(config)
+
+        try:
+            if not scraper.connect_database():
+                raise RuntimeError("failed to connect to Kingbase")
+            if not scraper.login():
+                raise RuntimeError("failed to login to source system")
+
+            data_items = scraper.fetch_data()
+            target_table = f"{config['database'].get('schema', 'public')}.zq_kshddpt_dsjfx_jq"
+
+            if not data_items:
+                return [
+                    {
+                        "event_id": f"zq_{uuid4().hex}",
+                        "task_name": "zq_kshddpt_dsjfx_jq",
+                        "target_table": target_table,
+                        "status": "success_no_data",
+                        "fetched_record_count": 0,
+                        "written_record_count": 0,
+                        "message_text": "ZQ data sync finished with no data.",
+                        "message_vars": {
+                            "task_name": "zq_kshddpt_dsjfx_jq",
+                            "target_table": target_table,
+                            "written_record_count": 0,
+                        },
+                        "start_time": started_at.isoformat(),
+                        "end_time": datetime.now().isoformat(),
+                    }
+                ]
+
+            scraper.create_table_if_not_exists(data_items[0])
+            written_count = scraper.save_data(data_items)
+
+            return [
+                {
+                    "event_id": f"zq_{uuid4().hex}",
+                    "task_name": "zq_kshddpt_dsjfx_jq",
+                    "target_table": target_table,
+                    "status": "success",
+                    "fetched_record_count": len(data_items),
+                    "written_record_count": written_count,
+                    "message_text": (
+                        f"ZQ data sync finished: fetched {len(data_items)} rows, "
+                        f"written {written_count} rows."
+                    ),
+                    "message_vars": {
+                        "task_name": "zq_kshddpt_dsjfx_jq",
+                        "target_table": target_table,
+                        "fetched_record_count": len(data_items),
+                        "written_record_count": written_count,
+                    },
+                    "start_time": started_at.isoformat(),
+                    "end_time": datetime.now().isoformat(),
+                }
+            ]
+        finally:
+            if scraper.db_conn:
+                scraper.db_conn.close()
+                scraper.db_conn = None
 
 
 def main():

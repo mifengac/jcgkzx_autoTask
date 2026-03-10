@@ -24,9 +24,11 @@ import json
 import time
 import logging
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from uuid import uuid4
 
 import requests
 
@@ -37,6 +39,38 @@ REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 MOBILE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
+
+
+def _runtime_to_env_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(str(item) for item in value if item not in (None, ""))
+    return str(value)
+
+
+@contextmanager
+def _temporary_runtime_env(runtime_config: Dict[str, Any], mapping: Dict[str, str]):
+    original: Dict[str, Optional[str]] = {}
+    try:
+        for runtime_key, env_key in mapping.items():
+            if runtime_key not in runtime_config:
+                continue
+            original[env_key] = os.environ.get(env_key)
+            value = runtime_config.get(runtime_key)
+            if value in (None, ""):
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = _runtime_to_env_value(value)
+        yield
+    finally:
+        for env_key, value in original.items():
+            if value is None:
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = value
 
 # 固定请求参数
 BASE_PARAMS = {
@@ -825,6 +859,64 @@ class WcnrJqMonitor:
         self.logger.info("=" * 60)
 
         return 0
+
+
+def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    context = context or {}
+    runtime_config = context.get("runtime_config")
+    if not isinstance(runtime_config, dict):
+        runtime_config = {}
+
+    env_mapping = {
+        "login_username": "LOGIN_USERNAME",
+        "login_password": "LOGIN_PASSWORD",
+        "monitor_login_url": "MONITOR_LOGIN_URL",
+        "monitor_api_url": "MONITOR_API_URL",
+        "kingbase_host": "KINGBASE_HOST",
+        "kingbase_port": "KINGBASE_PORT",
+        "kingbase_dbname": "KINGBASE_DBNAME",
+        "kingbase_user": "KINGBASE_USER",
+        "kingbase_password": "KINGBASE_PASSWORD",
+        "kg_target_xqdm": "KG_TARGET_XQDM",
+        "sms_mobiles": "SMS_MOBILES",
+        "monitor_second_query_enabled": "MONITOR_SECOND_QUERY_ENABLED",
+        "monitor_second_query_newori_subclass_no": "MONITOR_SECOND_QUERY_NEWORI_SUBCLASS_NO",
+        "monitor_second_query_case_mark_no": "MONITOR_SECOND_QUERY_CASE_MARK_NO",
+    }
+
+    with _temporary_runtime_env(runtime_config, env_mapping):
+        logger = setup_logging()
+        config = load_config_from_env()
+
+        if not config.login_username or not config.login_password:
+            raise RuntimeError("missing login credentials")
+
+        monitor = WcnrJqMonitor(config, logger)
+        if not monitor.login():
+            raise RuntimeError("failed to login to monitor source system")
+
+        records = monitor.fetch_data()
+        results: List[Dict[str, Any]] = []
+        for index, record in enumerate(records, start=1):
+            case_no = str(record.get("caseNo") or "").strip() or f"monitor_case_{index}"
+            duty_dept_no = str(record.get("dutyDeptNo") or "").strip()
+            result_row = dict(record)
+            result_row.update(
+                {
+                    "event_id": case_no or f"monitor_{uuid4().hex}",
+                    "event_key": case_no or f"monitor_{uuid4().hex}",
+                    "case_no": case_no,
+                    "dwdm": duty_dept_no,
+                    "sspcsdm": duty_dept_no,
+                    "message_text": monitor.build_sms_content(record),
+                    "message_vars": {
+                        "case_no": case_no,
+                        "duty_dept_no": duty_dept_no,
+                    },
+                }
+            )
+            results.append(result_row)
+        return results
 
 
 def main():

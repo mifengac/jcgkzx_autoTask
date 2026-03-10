@@ -1,91 +1,422 @@
-# sjtb:1.3 Offline Delivery and Deployment
+# 监控任务平台业务说明
 
-This directory packages 5 scripts into one image: `sjtb:1.3`.
-Production scheduling uses host `crontab` + `sudo docker run --rm`.
+## 1. 文档目的
 
-## 1. Task Entrypoints
+本文档不再说明旧版 `sjtb:1.3` 的离线交付方式，而是说明当前监控任务平台的业务逻辑。
 
-- `monitor` -> `monitor_wcnr_jq.py` (every 10 minutes)
-- `jsbrjq` -> `0306jsbrjq_monitor.py` (every 2 hours)
-- `dxpt0123` -> `0123_dxpt_ceshi.py` (every 30 minutes)
-- `zq` -> `zq_kshddpt_dsjfx_jq.py` (every 3 hours at minute 0)
-- `multi` -> `data_scraper_multi.py` (every 3 hours at minute 30)
+重点解释以下 5 个模块之间如何配合完成一次完整的短信预警：
 
-Container entrypoint is `task_runner.py`, usage:
+- 上传脚本
+- 短信模板
+- 任务与频率
+- 发送规则
+- 联系人与运行记录
 
-```bash
-docker run --rm sjtb:1.3 monitor
-docker run --rm sjtb:1.3 jsbrjq
-docker run --rm sjtb:1.3 dxpt0123
-docker run --rm sjtb:1.3 zq
-docker run --rm sjtb:1.3 multi
+## 2. 平台解决的核心问题
+
+旧系统的主要问题是：
+
+- 脚本、接收人、发送频率都散落在 Python 文件和 `crontab` 里
+- 业务规则一旦变更，必须改代码、重新打包、重新部署
+- 很难回答“这条短信为什么发给这个人”
+- 很难回溯“某次运行到底查出了什么、命中了什么规则、最终给谁发了短信”
+
+新平台把“取数”和“发给谁、发什么、多久发一次”拆开管理：
+
+- 脚本只负责取数并输出标准结果
+- 任务负责决定什么时候跑、跑哪个脚本
+- 模板负责决定短信正文长什么样
+- 规则负责决定每条结果发给谁
+- 联系人主数据负责提供可匹配的人员和手机号
+- 运行记录负责保留全过程，便于审计和排错
+
+## 3. 五个模块的职责
+
+### 3.1 上传脚本
+
+“上传脚本”模块负责管理取数逻辑。
+
+它的业务职责是：
+
+- 上传脚本 ZIP 包
+- 保存脚本版本
+- 记录脚本入口文件、入口函数、清单信息
+- 让任务选择“到底跑哪个脚本版本”
+
+它不负责：
+
+- 决定发给谁
+- 决定短信内容
+- 决定多久执行一次
+
+平台要求脚本输出标准化结果列表。每一条结果本质上是一条“待判断事件”。
+
+例如脚本可以返回：
+
+```json
+[
+  {
+    "event_id": "jq_20260310_001",
+    "dwdm": "445302180000",
+    "sspcsdm": "445302180000",
+    "case_name": "某类警情",
+    "message_vars": {
+      "title": "某类警情",
+      "address": "某地点"
+    }
+  }
+]
 ```
 
-## 2. Environment File
+这里脚本只告诉平台“查到了什么”，不直接发短信。
 
-Use `/opt/sjtb/env/sjtb.env` on the target server.
-Template file:
+### 3.2 短信模板
 
-- `env/sjtb.env.example`
+“短信模板”模块负责管理短信正文。
 
-### monitor 二次查询（合并后再发短信）
+它的业务职责是：
 
-`monitor_wcnr_jq.py` 默认会对 `/dsjfx/case/list` 做 2 次查询，并将两次结果按 `caseNo` 合并去重后再统一发送短信。
-可通过以下环境变量调整：
+- 定义短信内容格式
+- 使用脚本结果中的字段渲染短信正文
+- 让同一个脚本结果，在不同任务下可以套用不同文案
 
-- `MONITOR_SECOND_QUERY_ENABLED`：是否启用第二次查询（默认启用）
-- `MONITOR_SECOND_QUERY_NEWORI_SUBCLASS_NO`：第二次查询的 `newOriCharaSubclassNo`
-- `MONITOR_SECOND_QUERY_CASE_MARK_NO`：第二次查询的 `caseMarkNo`（默认空表示不限定“未成年人”标记）
+例如模板内容可以是：
 
-Main runtime call format:
-
-```bash
-sudo docker run --rm \
-  --env-file /opt/sjtb/env/sjtb.env \
-  -e TZ=Asia/Shanghai \
-  -e LD_LIBRARY_PATH=/opt/oracle/instantclient \
-  -v /opt/sjtb/logs:/app/logs \
-  -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro \
-  sjtb:1.3 monitor
+```text
+【治安基础管控中心】{title}，地点：{address}，请及时处置。
 ```
 
-`0306jsbrjq_monitor.py` queries the last 24 hours with `params[startTime]` / `params[endTime]`, filters rows whose `caseContents` or `replies` contains `精神病|精神障碍|精神异常|精神发病|犯病|肇事肇祸`, and then sends SMS after deduping by `caseNo + mobile`.
+渲染时平台会把脚本返回的 `message_vars` 或结果字段代入模板，生成最终短信正文。
 
-## 3. Build and Offline Transfer
+它不负责：
 
-On online machine:
+- 决定谁接收
+- 决定多久执行
 
-```bash
-cd sjtb
-docker build -t sjtb:1.3 .
-docker save sjtb:1.3 -o /path/to/usb/sjtb_1.3.tar
+### 3.3 任务与频率
+
+“任务与频率”模块是整个平台的编排中心。
+
+它的业务职责是：
+
+- 选择一个脚本版本
+- 选择一个短信模板
+- 配置运行参数
+- 配置发送频率
+- 控制任务启停
+
+一个任务可以理解为：
+
+“按某个频率，运行某个脚本，把结果按某个模板和某组规则发送出去”
+
+当前频率模型只支持两种单位：
+
+- 分钟
+- 小时
+
+例如：
+
+- `20 + minute` 表示每 20 分钟执行一次
+- `3 + hour` 表示每 3 小时执行一次
+
+任务本身不直接写死接收人，而是关联发送规则。
+
+### 3.4 发送规则
+
+“发送规则”模块负责把脚本结果转换成接收人手机号。
+
+这是平台最核心的业务判断层。
+
+当前支持 3 类规则：
+
+#### 1. 固定人员
+
+适用于固定通知对象，例如值班领导、测试号码、兜底人员。
+
+逻辑是：
+
+- 不看脚本结果字段
+- 直接使用规则里配置的手机号
+
+#### 2. 字段直接匹配
+
+适用于“脚本结果里带了单位编码，按编码找到对应联系人”。
+
+逻辑是：
+
+1. 从脚本结果中取一个源字段，例如 `dwdm` 或 `sspcsdm`
+2. 拿这个值去联系人表中匹配一个目标字段，例如 `sspcsdm` 或 `xqdm`
+3. 找到命中的联系人手机号
+4. 合并去重后作为接收人
+
+例如：
+
+- 源字段：`sspcsdm`
+- 目标字段：`sspcsdm`
+
+那么脚本结果中的 `445302180000`，会去联系人表中查 `sspcsdm = 445302180000`
+
+#### 3. 字段匹配并带上级单位
+
+适用于“发给本级单位，同时发给县级和市级”。
+
+例如脚本结果里：
+
+```text
+dwdm = 445302180000
 ```
 
-On internal CentOS Stream 10 server:
+如果规则配置为：
 
-```bash
-sudo docker load -i /path/to/usb/sjtb_1.3.tar
-sudo mkdir -p /opt/sjtb/env /opt/sjtb/logs
+- 匹配字段：`sspcsdm`
+- 包含本级：是
+- 包含县级：是
+- 包含市级：是
+
+那么平台会自动展开成：
+
+- 本级：`445302180000`
+- 县级：`445302000000`
+- 市级：`445300000000`
+
+再去联系人表里查这三个编码对应的手机号，最后合并去重发送。
+
+这就是“规则 3”的完整业务意义。
+
+### 3.5 联系人与运行记录
+
+“联系人与运行记录”实际上是两个业务支撑模块。
+
+联系人模块负责：
+
+- 提供规则匹配的数据源
+- 保存县区、派出所、联系人、手机号之间的关系
+- 支持按 `xqdm`、`sspcsdm`、层级等维度查找人员
+
+当前联系人主数据不再直接依赖旧表 `ywdata.b_dxpt_mdjfyj`，而是迁移到新模式 `jcgkzx_autotask` 下的表：
+
+- `org_contact`
+- `org_contact_phone`
+
+运行记录模块负责：
+
+- 记录任务每次执行的开始时间、结束时间、状态
+- 记录脚本返回了多少条结果
+- 记录每条结果命中了哪些规则
+- 记录每条结果最终对应哪些手机号
+- 记录短信是否发送成功、失败原因是什么
+
+它解决的问题是：
+
+- 为什么这条短信发出去了
+- 为什么这条短信没有发
+- 是哪条规则命中的
+- 命中的联系人是谁
+
+## 4. 五个模块之间的业务关系
+
+这五个模块不是并列的，而是前后依赖关系。
+
+完整链路如下：
+
+1. 先上传脚本
+2. 再定义短信模板
+3. 再创建任务，并给任务选择脚本和模板
+4. 再给任务配置发送规则
+5. 规则执行时去联系人表找手机号
+6. 运行完成后把全过程写入运行记录
+
+换句话说：
+
+- 脚本决定“查出什么”
+- 模板决定“短信写什么”
+- 任务决定“什么时候跑、跑谁”
+- 规则决定“发给谁”
+- 联系人决定“规则能匹配到谁”
+- 运行记录决定“事后怎么查”
+
+## 5. 一次完整运行的业务流程
+
+下面用平台一次标准执行来说明整个链路。
+
+### 第一步：调度器触发任务
+
+平台根据“任务与频率”配置，到时间后触发某个任务。
+
+例如：
+
+- 任务名称：未成年人警情监控
+- 频率：20 分钟一次
+
+### 第二步：任务加载脚本和模板
+
+任务会读取自己的配置：
+
+- 用哪个脚本版本
+- 用哪个短信模板
+- 用哪些运行参数
+
+### 第三步：执行脚本，得到结果列表
+
+脚本运行后返回标准化结果列表。
+
+例如返回 3 条事件。
+
+### 第四步：逐条结果执行发送规则
+
+平台对每一条结果，按规则优先级依次计算接收人。
+
+例如：
+
+- 规则 A：固定人员
+- 规则 B：按 `sspcsdm` 直接匹配
+- 规则 C：按 `dwdm` 向上匹配到县、市
+
+平台会把这 3 条规则命中的手机号合并去重，得到该条事件的最终接收人。
+
+### 第五步：渲染短信模板
+
+平台把这条结果带入模板，生成短信正文。
+
+例如：
+
+```text
+【治安基础管控中心】未成年人警情，地点：某路段，请及时关注。
 ```
 
-Copy and edit env file:
+### 第六步：去重并发送短信
 
-```bash
-cp /path/to/repo/sjtb/env/sjtb.env.example /opt/sjtb/env/sjtb.env
-```
+平台会做发送前判断：
 
-## 4. Host Crontab (Recommended)
+- 同一事件是否已经给同一手机号发过
+- 当前运行内是否重复命中同一个手机号
 
-Use `flock` to prevent re-entry:
+确认后才写入 Oracle 短信队列表。
 
-```cron
-*/10 * * * * flock -n /var/lock/sjtb_monitor.lock sudo docker run --rm --name sjtb_monitor --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -e LD_LIBRARY_PATH=/opt/oracle/instantclient -v /opt/sjtb/logs:/app/logs -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro sjtb:1.3 monitor >> /opt/sjtb/logs/cron_monitor.log 2>&1
-0 */2 * * * flock -n /var/lock/sjtb_jsbrjq.lock sudo docker run --rm --name sjtb_jsbrjq --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -e LD_LIBRARY_PATH=/opt/oracle/instantclient -v /opt/sjtb/logs:/app/logs -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro sjtb:1.3 jsbrjq >> /opt/sjtb/logs/cron_jsbrjq.log 2>&1
-*/30 * * * * flock -n /var/lock/sjtb_0123.lock sudo docker run --rm --name sjtb_0123 --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -e LD_LIBRARY_PATH=/opt/oracle/instantclient -v /opt/sjtb/logs:/app/logs -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro sjtb:1.3 dxpt0123 >> /opt/sjtb/logs/cron_0123.log 2>&1
-0 */3 * * * flock -n /var/lock/sjtb_zq.lock sudo docker run --rm --name sjtb_zq --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -e LD_LIBRARY_PATH=/opt/oracle/instantclient -v /opt/sjtb/logs:/app/logs -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro sjtb:1.3 zq >> /opt/sjtb/logs/cron_zq.log 2>&1
-30 */3 * * * flock -n /var/lock/sjtb_multi.lock sudo docker run --rm --name sjtb_multi --env-file /opt/sjtb/env/sjtb.env -e TZ=Asia/Shanghai -e LD_LIBRARY_PATH=/opt/oracle/instantclient -v /opt/sjtb/logs:/app/logs -v /opt/oracle/instantclient_11_2:/opt/oracle/instantclient:ro sjtb:1.3 multi >> /opt/sjtb/logs/cron_multi.log 2>&1
-```
+### 第七步：记录全过程
 
-## 5. Optional docker-compose (Development Only)
+平台把以下信息全部保存：
 
-`docker-compose.yml` is only for local development/testing and is not the production scheduler.
+- 任务运行记录
+- 原始结果
+- 命中规则
+- 接收手机号
+- 短信发送日志
+
+这样前端就能回溯整条链路。
+
+## 6. 模块之间的典型依赖
+
+### 6.1 为什么“上传脚本”必须先于“任务与频率”
+
+因为任务必须先知道：
+
+- 要跑哪个脚本
+- 跑哪个版本
+
+没有脚本，任务无法建立。
+
+### 6.2 为什么“短信模板”不放进脚本里
+
+因为同一个脚本结果可能在不同场景下对应不同文案。
+
+把模板独立出来以后：
+
+- 业务改文案不用改脚本
+- 运营改文案不用重新部署代码
+
+### 6.3 为什么“发送规则”不放进脚本里
+
+因为发给谁属于业务编排逻辑，不属于取数逻辑。
+
+如果把规则写死在脚本里，会导致：
+
+- 接收人变更必须改代码
+- 难以同时支持固定人员、直接匹配、上级匹配
+- 难以做规则试算和审计
+
+### 6.4 为什么“联系人”必须独立建表
+
+因为联系人是多个任务共用的主数据，不应散在各个脚本里。
+
+独立后可以做到：
+
+- 统一维护手机号
+- 统一维护单位编码关系
+- 统一支持 `xqdm` 和 `sspcsdm` 两种匹配方式
+
+### 6.5 为什么“运行记录”必须保留原始结果
+
+因为只保留“发送成功/失败”不够，排查时还需要知道：
+
+- 当时脚本到底查到了什么
+- 哪个字段参与了匹配
+- 哪条规则命中了谁
+
+## 7. 前端五个模块的使用顺序建议
+
+平台日常使用建议按下面顺序操作：
+
+1. 先维护联系人主数据
+2. 上传脚本
+3. 创建短信模板
+4. 创建任务并配置频率
+5. 给任务配置发送规则
+6. 先做手动演练
+7. 确认命中人和短信内容正确后再启用自动调度
+
+这个顺序的原因是：
+
+- 没有联系人，规则无法命中
+- 没有脚本，任务无法运行
+- 没有模板，短信正文不可控
+- 没有规则，任务虽然能跑，但找不到接收人
+
+## 8. 业务上最关键的三个判断
+
+平台最终是否会发出一条短信，取决于三个判断同时成立：
+
+### 1. 脚本是否查到了结果
+
+如果脚本没有返回结果，就不会产生待发送事件。
+
+### 2. 规则是否匹配到了联系人
+
+如果脚本查到了结果，但规则没命中任何手机号，这条结果会被记录为“无接收人，不发送”。
+
+### 3. 模板是否成功渲染，且发送前未被去重拦截
+
+只有正文生成成功、且没有命中重复发送条件，平台才会真正写入短信队列表。
+
+## 9. 对业务人员的理解方式
+
+如果从业务角度去理解整个平台，可以把它看成一句话：
+
+“平台定时运行脚本查出事件，用模板生成短信，再按规则去联系人表找人，最后把发送过程完整记下来。”
+
+对应到五个模块就是：
+
+- 上传脚本：定义查什么
+- 短信模板：定义怎么写
+- 任务与频率：定义什么时候查
+- 发送规则：定义发给谁
+- 联系人与运行记录：定义去哪找人，以及事后怎么查
+
+## 10. 当前平台的业务边界
+
+当前平台已经明确的边界是：
+
+- 平台负责统一发送短信
+- 脚本不直接发送短信
+- 联系人匹配优先走新模式 `jcgkzx_autotask`
+- 发送规则支持固定、直接匹配、带上级单位匹配三类
+- 调度频率当前只支持分钟和小时
+
+后续如果要扩展：
+
+- 更复杂的 cron 表达式
+- 多短信通道
+- 更多层级匹配规则
+- 权限审批和多角色管理
+
+都应继续沿用“脚本取数、平台编排”的原则，而不是把业务逻辑重新写回脚本中。

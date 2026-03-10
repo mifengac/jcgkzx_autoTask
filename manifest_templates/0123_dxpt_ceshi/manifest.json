@@ -1,0 +1,7 @@
+{
+  "script_code": "0123_dxpt_ceshi",
+  "script_name": "DXPT SMS Task",
+  "script_type": "python_zip",
+  "entry_file": "0123_dxpt_ceshi.py",
+  "entry_func": "run"
+}

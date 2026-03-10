@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 import json
 import re
 from typing import Any
@@ -24,8 +25,16 @@ def parse_json_text(value: str | None, default: Any) -> Any:
         return default
 
 
+def _json_default(value: Any) -> Any:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, set):
+        return list(value)
+    return str(value)
+
+
 def dump_json_text(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False)
+    return json.dumps(value, ensure_ascii=False, default=_json_default)
 
 
 def normalize_mobile(raw: Any) -> str | None:

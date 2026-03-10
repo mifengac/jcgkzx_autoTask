@@ -23,6 +23,7 @@ from autotask_api.schemas import (
     TaskScheduleRead,
 )
 from autotask_api.services.rule_engine import parse_json_text
+from autotask_api.services.task_fields import normalize_dedup_key_expr_output
 
 
 def serialize_script_version(version: ScriptVersion) -> ScriptVersionRead:
@@ -110,7 +111,7 @@ def serialize_task(task: AlertTask) -> TaskRead:
         script_version_id=task.script_version_id,
         message_template_id=task.message_template_id,
         enabled=task.enabled,
-        dedup_key_expr=task.dedup_key_expr,
+        dedup_key_expr=normalize_dedup_key_expr_output(task.dedup_key_expr),
         dedup_window_minutes=task.dedup_window_minutes,
         runtime_config=parse_json_text(task.runtime_config_json, {}),
         created_at=task.created_at,

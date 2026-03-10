@@ -25,6 +25,7 @@ from autotask_api.services.rule_engine import (
     resolve_rule_mobiles,
 )
 from autotask_api.services.script_runner import execute_script
+from autotask_api.services.task_fields import normalize_non_null_text_input
 
 
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
@@ -66,7 +67,7 @@ def build_message(task: AlertTask, row: dict[str, Any]) -> str:
         if value not in (None, ""):
             return str(value)
 
-    return json.dumps(row, ensure_ascii=False)
+    return dump_json_text(row)
 
 
 def create_run_record(db: Session, task: AlertTask) -> TaskRun:
@@ -75,6 +76,8 @@ def create_run_record(db: Session, task: AlertTask) -> TaskRun:
         run_no=f"{task.id}_{uuid4().hex}",
         status="running",
         started_at=datetime.utcnow(),
+        error_message=normalize_non_null_text_input(""),
+        log_path=normalize_non_null_text_input(""),
     )
     db.add(run)
     db.commit()
@@ -100,9 +103,9 @@ def record_sms_log(
         mobile=mobile,
         content=content,
         provider=provider,
-        provider_msg_id=provider_msg_id,
+        provider_msg_id=normalize_non_null_text_input(provider_msg_id),
         status=status_text,
-        error_message=error_message,
+        error_message=normalize_non_null_text_input(error_message),
     )
     db.add(log)
 
@@ -136,6 +139,17 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
 
     gateway: OracleSmsGateway | None = None
     provider_name = OracleSmsGateway.provider_name
+    disable_sms = str(runtime_config.get("disable_sms", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    } or str(runtime_config.get("disable_send", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     try:
         rows = execute_script(script=task.script, version=task.script_version, context=context)
@@ -162,7 +176,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                 task_run_id=run.id,
                 event_key=event_key,
                 raw_result_json=dump_json_text(row),
-                rendered_message=rendered_message,
+                rendered_message=normalize_non_null_text_input(rendered_message),
                 matched_rule_ids_json=dump_json_text(matched_rule_ids),
                 receiver_mobiles_json=dump_json_text(aggregated_mobiles),
                 send_status="pending",
@@ -175,6 +189,12 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
 
             if not aggregated_mobiles:
                 result.send_status = "skipped_no_receivers"
+                db.add(result)
+                db.commit()
+                continue
+
+            if disable_sms:
+                result.send_status = "skipped_sms_disabled"
                 db.add(result)
                 db.commit()
                 continue
@@ -259,6 +279,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         run.send_count = sent_count
         run.status = "completed" if not payload.dry_run else "completed_dry_run"
         run.finished_at = datetime.utcnow()
+        run.error_message = normalize_non_null_text_input("")
         db.add(run)
         db.commit()
         db.refresh(run)
@@ -267,7 +288,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         db.rollback()
         run.status = "failed"
         run.finished_at = datetime.utcnow()
-        run.error_message = str(exc)
+        run.error_message = normalize_non_null_text_input(str(exc))
         db.add(run)
         db.commit()
         db.refresh(run)

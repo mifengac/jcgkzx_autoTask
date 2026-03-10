@@ -26,6 +26,7 @@ def _load_runner(module_path: Path, entry_func: str | None) -> Callable[[dict[st
             detail=f"Failed to load module from {module_path}.",
         )
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
 
     resolved_entry_func = entry_func or "run"
@@ -94,5 +95,7 @@ def execute_script(
                 result = asyncio.run(result)
             return _coerce_result_rows(result)
         finally:
+            if "runner" in locals():
+                sys.modules.pop(getattr(runner, "__module__", ""), None)
             if sys.path and sys.path[0] == str(temp_root):
                 sys.path.pop(0)

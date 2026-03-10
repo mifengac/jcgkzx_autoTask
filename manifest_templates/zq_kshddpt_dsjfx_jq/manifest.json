@@ -1,0 +1,7 @@
+{
+  "script_code": "zq_kshddpt_dsjfx_jq",
+  "script_name": "ZQ DSJFX Import Task",
+  "script_type": "python_zip",
+  "entry_file": "zq_kshddpt_dsjfx_jq.py",
+  "entry_func": "run"
+}

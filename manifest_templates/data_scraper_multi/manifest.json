@@ -1,0 +1,7 @@
+{
+  "script_code": "data_scraper_multi",
+  "script_name": "Multi Data Import Task",
+  "script_type": "python_zip",
+  "entry_file": "data_scraper_multi.py",
+  "entry_func": "run"
+}

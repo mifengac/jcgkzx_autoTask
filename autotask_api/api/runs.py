@@ -14,6 +14,7 @@ from autotask_api.schemas import (
     TaskRunResultRead,
 )
 from autotask_api.services.rule_engine import parse_json_text
+from autotask_api.services.task_fields import normalize_non_null_text_output
 from autotask_api.services.task_executor import execute_task_run
 
 
@@ -31,8 +32,8 @@ def serialize_task_run(run: TaskRun) -> TaskRunRead:
         result_count=run.result_count,
         hit_count=run.hit_count,
         send_count=run.send_count,
-        error_message=run.error_message,
-        log_path=run.log_path,
+        error_message=normalize_non_null_text_output(run.error_message),
+        log_path=normalize_non_null_text_output(run.log_path),
         created_at=run.created_at,
     )
 
@@ -43,7 +44,7 @@ def serialize_task_run_result(item: TaskRunResult) -> TaskRunResultRead:
         task_run_id=item.task_run_id,
         event_key=item.event_key,
         raw_result=parse_json_text(item.raw_result_json, {}),
-        rendered_message=item.rendered_message,
+        rendered_message=normalize_non_null_text_output(item.rendered_message),
         matched_rule_ids=parse_json_text(item.matched_rule_ids_json, []),
         receiver_mobiles=parse_json_text(item.receiver_mobiles_json, []),
         send_status=item.send_status,
@@ -59,9 +60,9 @@ def serialize_sms_log(item: SmsSendLog) -> SmsSendLogRead:
         mobile=item.mobile,
         content=item.content,
         provider=item.provider,
-        provider_msg_id=item.provider_msg_id,
+        provider_msg_id=normalize_non_null_text_output(item.provider_msg_id),
         status=item.status,
-        error_message=item.error_message,
+        error_message=normalize_non_null_text_output(item.error_message),
         created_at=item.created_at,
     )
 

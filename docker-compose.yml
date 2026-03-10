@@ -1,9 +1,6 @@
 services:
   autotask:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: jcgkzx-autotask:latest
+    image: jcgkzx-autotask:offline-20260310-jsonfix
     container_name: jcgkzx-autotask
     restart: unless-stopped
     env_file:

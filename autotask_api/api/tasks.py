@@ -9,6 +9,7 @@ from autotask_api.database import get_db
 from autotask_api.models import AlertTask, MessageTemplate, ScriptDefinition, ScriptVersion, TaskSchedule
 from autotask_api.schemas import TaskCreate, TaskRead, TaskScheduleUpsert, TaskUpdate
 from autotask_api.services.rule_engine import dump_json_text
+from autotask_api.services.task_fields import normalize_dedup_key_expr_input
 from autotask_api.services.scheduler import scheduler_service
 
 
@@ -75,7 +76,7 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> TaskRead:
         script_version_id=payload.script_version_id,
         message_template_id=payload.message_template_id,
         enabled=payload.enabled,
-        dedup_key_expr=payload.dedup_key_expr,
+        dedup_key_expr=normalize_dedup_key_expr_input(payload.dedup_key_expr),
         dedup_window_minutes=payload.dedup_window_minutes,
         runtime_config_json=dump_json_text(payload.runtime_config),
     )
@@ -112,6 +113,9 @@ def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)
     runtime_config = data.pop("runtime_config", None)
     if runtime_config is not None:
         task.runtime_config_json = dump_json_text(runtime_config)
+
+    if "dedup_key_expr" in data:
+        data["dedup_key_expr"] = normalize_dedup_key_expr_input(data["dedup_key_expr"])
 
     for key, value in data.items():
         setattr(task, key, value)

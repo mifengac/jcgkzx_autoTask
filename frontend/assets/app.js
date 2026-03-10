@@ -188,6 +188,7 @@ function renderTasks() {
         </div>
         <div class="item-meta">
           script_id=${task.script_id} / version_id=${task.script_version_id}<br>
+          dedup=${escapeHtml(task.dedup_key_expr || "-")}<br>
           模板: ${task.message_template_id || "未配置"}<br>
           频率: ${schedule ? `${schedule.interval_value} ${schedule.interval_unit}` : "未配置"}<br>
           规则数: ${task.rules.length}
@@ -358,6 +359,7 @@ async function submitTask(event) {
       script_version_id: Number(form.get("script_version_id")),
       message_template_id: form.get("message_template_id") ? Number(form.get("message_template_id")) : null,
       enabled: form.get("enabled") === "on",
+      dedup_key_expr: String(form.get("dedup_key_expr") || "").trim(),
       dedup_window_minutes: Number(form.get("dedup_window_minutes") || 0),
       runtime_config: runtimeConfig,
     };
@@ -564,6 +566,7 @@ async function handleRunListClick(event) {
 function fillTaskForm(task) {
   fillForm(dom.taskForm, {
     task_name: task.task_name,
+    dedup_key_expr: task.dedup_key_expr,
     dedup_window_minutes: task.dedup_window_minutes,
     runtime_config: JSON.stringify(task.runtime_config || {}, null, 2),
   });
@@ -597,6 +600,7 @@ function resetTemplateForm() {
 function resetTaskForm() {
   state.editingTaskId = null;
   dom.taskForm.reset();
+  dom.taskForm.elements.dedup_key_expr.value = "";
   dom.taskForm.elements.dedup_window_minutes.value = 720;
   dom.taskForm.elements.schedule_interval_value.value = 20;
   dom.taskForm.elements.schedule_interval_unit.value = "minute";
@@ -669,7 +673,17 @@ async function api(path, options = {}) {
     return null;
   }
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      if (!response.ok) {
+        throw new Error(text);
+      }
+      data = text;
+    }
+  }
   if (!response.ok) {
     throw new Error(data && data.detail ? data.detail : `请求失败: ${response.status}`);
   }

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autotask_api.config import get_settings
 from autotask_api.database import Base
+from autotask_api.services.task_fields import EMPTY_DEDUP_KEY_EXPR_SENTINEL, EMPTY_TEXT_SENTINEL
 
 
 settings = get_settings()
@@ -97,7 +98,9 @@ class AlertTask(TimestampMixin, Base):
         ForeignKey(f"{SCHEMA}.message_template.id")
     )
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    dedup_key_expr: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    dedup_key_expr: Mapped[str] = mapped_column(
+        Text, nullable=False, default=EMPTY_DEDUP_KEY_EXPR_SENTINEL
+    )
     dedup_window_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=720)
     runtime_config_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
 
@@ -183,8 +186,8 @@ class TaskRun(Base):
     result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     send_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    log_path: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    log_path: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
@@ -204,7 +207,7 @@ class TaskRunResult(Base):
     )
     event_key: Mapped[str] = mapped_column(Text, nullable=False)
     raw_result_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
-    rendered_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    rendered_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
     matched_rule_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     receiver_mobiles_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     send_status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
@@ -230,9 +233,9 @@ class SmsSendLog(Base):
     mobile: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(Text, nullable=False, default="oracle_gateway")
-    provider_msg_id: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    provider_msg_id: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
-    error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

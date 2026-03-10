@@ -5,9 +5,11 @@ import logging
 import os
 import re
 from collections import Counter
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
+from uuid import uuid4
 
 
 KINGBASE_SQL: str = r"""
@@ -142,6 +144,38 @@ class SmsGatewayConfig:
     userid: str
     password: str
     userport: str
+
+
+def _runtime_to_env_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(str(item) for item in value if item not in (None, ""))
+    return str(value)
+
+
+@contextmanager
+def _temporary_runtime_env(runtime_config: Dict[str, Any], mapping: Dict[str, str]):
+    original: Dict[str, Optional[str]] = {}
+    try:
+        for runtime_key, env_key in mapping.items():
+            if runtime_key not in runtime_config:
+                continue
+            original[env_key] = os.environ.get(env_key)
+            value = runtime_config.get(runtime_key)
+            if value in (None, ""):
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = _runtime_to_env_value(value)
+        yield
+    finally:
+        for env_key, value in original.items():
+            if value is None:
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = value
 
 
 def _require_env(name: str, default: Optional[str] = None) -> str:
@@ -411,6 +445,65 @@ def iter_targets(rows: List[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
     for row in rows:
         if should_send(row):
             yield row
+
+
+def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    context = context or {}
+    runtime_config = context.get("runtime_config")
+    if not isinstance(runtime_config, dict):
+        runtime_config = {}
+
+    env_mapping = {
+        "kingbase_host": "KINGBASE_HOST",
+        "kingbase_port": "KINGBASE_PORT",
+        "kingbase_dbname": "KINGBASE_DBNAME",
+        "kingbase_user": "KINGBASE_USER",
+        "kingbase_password": "KINGBASE_PASSWORD",
+        "dxpt_start_date": "DXPT_START_DATE",
+    }
+
+    with _temporary_runtime_env(runtime_config, env_mapping):
+        king_cfg = load_kingbase_config_from_env()
+        start_date = _require_env("DXPT_START_DATE")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", start_date):
+            raise RuntimeError("DXPT_START_DATE must be in YYYY-MM-DD format.")
+
+        sql_text = KINGBASE_SQL.replace("2026-01-01", start_date)
+        rows = fetch_kingbase_rows(king_cfg, sql_text)
+        targets = list(iter_targets(rows))
+
+        limit_raw = runtime_config.get("limit", runtime_config.get("dxpt_limit", 0))
+        limit = int(limit_raw or 0)
+        if limit > 0:
+            targets = targets[:limit]
+
+        eids = compute_eids(targets)
+        results: List[Dict[str, Any]] = []
+        for index, (row, eid) in enumerate(zip(targets, eids), start=1):
+            result_row = dict(row)
+            systemid = str(row.get("绯荤粺缂栧彿") or "").strip()
+            business_no = str(row.get("涓氬姟娴佹按鍙?") or "").strip()
+            station_code = str(row.get("鎵€灞炴淳鍑烘墍浠ｇ爜") or "").strip()
+            event_id = eid or systemid or business_no or f"dxpt_{uuid4().hex}"
+
+            result_row.update(
+                {
+                    "event_id": event_id,
+                    "event_key": event_id,
+                    "case_no": business_no or systemid or f"dxpt_case_{index}",
+                    "systemid": systemid,
+                    "dwdm": station_code,
+                    "sspcsdm": station_code,
+                    "message_text": build_sms_content(row),
+                    "message_vars": {
+                        "business_no": business_no,
+                        "systemid": systemid,
+                        "station_code": station_code,
+                    },
+                }
+            )
+            results.append(result_row)
+        return results
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
