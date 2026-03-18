@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,10 +14,11 @@ from autotask_api.services.task_fields import EMPTY_DEDUP_KEY_EXPR_SENTINEL, EMP
 
 settings = get_settings()
 SCHEMA = settings.db_schema
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def utcnow() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(SHANGHAI_TZ)
 
 
 class TimestampMixin:

@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -26,6 +27,12 @@ from autotask_api.services.rule_engine import (
 )
 from autotask_api.services.script_runner import execute_script
 from autotask_api.services.task_fields import normalize_non_null_text_input
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+
+
+def now_shanghai() -> datetime:
+    return datetime.now(SHANGHAI_TZ)
 
 
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
@@ -75,7 +82,7 @@ def create_run_record(db: Session, task: AlertTask) -> TaskRun:
         task_id=task.id,
         run_no=f"{task.id}_{uuid4().hex}",
         status="running",
-        started_at=datetime.utcnow(),
+        started_at=now_shanghai(),
         error_message=normalize_non_null_text_input(""),
         log_path=normalize_non_null_text_input(""),
     )
@@ -130,7 +137,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         "runtime_config": runtime_config,
         "trigger": "manual",
         "dry_run": payload.dry_run,
-        "now": datetime.utcnow().isoformat(),
+        "now": now_shanghai().isoformat(),
     }
     if payload.context_override:
         context["context_override"] = payload.context_override
@@ -278,7 +285,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         run.hit_count = hit_count
         run.send_count = sent_count
         run.status = "completed" if not payload.dry_run else "completed_dry_run"
-        run.finished_at = datetime.utcnow()
+        run.finished_at = now_shanghai()
         run.error_message = normalize_non_null_text_input("")
         db.add(run)
         db.commit()
@@ -287,7 +294,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
     except Exception as exc:
         db.rollback()
         run.status = "failed"
-        run.finished_at = datetime.utcnow()
+        run.finished_at = now_shanghai()
         run.error_message = normalize_non_null_text_input(str(exc))
         db.add(run)
         db.commit()

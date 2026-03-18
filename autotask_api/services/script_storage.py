@@ -4,6 +4,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from zipfile import ZipFile
 
 from fastapi import HTTPException, UploadFile, status
@@ -12,6 +13,7 @@ from autotask_api.config import get_settings
 
 
 settings = get_settings()
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 def ensure_script_upload_dir() -> Path:
@@ -31,7 +33,7 @@ async def save_script_package(
         )
 
     root = ensure_script_upload_dir()
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now(SHANGHAI_TZ).strftime("%Y%m%d%H%M%S")
     safe_name = Path(upload.filename).name
     target_dir = root / script_code / version_no
     target_dir.mkdir(parents=True, exist_ok=True)
