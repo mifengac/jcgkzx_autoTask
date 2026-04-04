@@ -3,17 +3,29 @@ from __future__ import annotations
 from datetime import date, datetime
 import json
 import re
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, joinedload
 
-from autotask_api.models import OrgContact, OrgContactPhone, TaskRule
+from autotask_api.models import OrgContact, OrgContactPhone
 
 
 MOBILE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 VALID_MATCH_FIELDS = {"sspcsdm", "xqdm", "city_code", "county_code"}
+
+
+class ReceiverRuleLike(Protocol):
+    enabled: bool
+    rule_type: str
+    source_field: str
+    target_match_field: str
+    include_self: bool
+    include_county: bool
+    include_city: bool
+    filter_json: str
+    fixed_receivers_json: str
 
 
 def parse_json_text(value: str | None, default: Any) -> Any:
@@ -95,7 +107,10 @@ def build_match_codes(
     return deduped
 
 
-def apply_contact_filters(stmt: Select[tuple[OrgContact]], rule: TaskRule) -> Select[tuple[OrgContact]]:
+def apply_contact_filters(
+    stmt: Select[tuple[OrgContact]],
+    rule: ReceiverRuleLike,
+) -> Select[tuple[OrgContact]]:
     filters = parse_json_text(rule.filter_json, {})
     if not isinstance(filters, dict):
         return stmt
@@ -111,7 +126,10 @@ def apply_contact_filters(stmt: Select[tuple[OrgContact]], rule: TaskRule) -> Se
     return stmt
 
 
-def contact_query_for_codes(rule: TaskRule, codes: list[str]) -> Select[tuple[OrgContact]]:
+def contact_query_for_codes(
+    rule: ReceiverRuleLike,
+    codes: list[str],
+) -> Select[tuple[OrgContact]]:
     if rule.target_match_field not in VALID_MATCH_FIELDS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,7 +145,11 @@ def contact_query_for_codes(rule: TaskRule, codes: list[str]) -> Select[tuple[Or
     return apply_contact_filters(stmt, rule)
 
 
-def resolve_rule_targets(db: Session, rule: TaskRule, sample_row: dict[str, Any]) -> tuple[list[str], list[OrgContact]]:
+def resolve_rule_targets(
+    db: Session,
+    rule: ReceiverRuleLike,
+    sample_row: dict[str, Any],
+) -> tuple[list[str], list[OrgContact]]:
     if not rule.enabled:
         return [], []
 
@@ -167,7 +189,11 @@ def resolve_rule_targets(db: Session, rule: TaskRule, sample_row: dict[str, Any]
     return codes, contacts
 
 
-def resolve_rule_mobiles(db: Session, rule: TaskRule, sample_row: dict[str, Any]) -> tuple[list[str], list[str], list[OrgContact]]:
+def resolve_rule_mobiles(
+    db: Session,
+    rule: ReceiverRuleLike,
+    sample_row: dict[str, Any],
+) -> tuple[list[str], list[str], list[OrgContact]]:
     if rule.rule_type == "fixed_receivers":
         mobiles = normalize_mobile_list(parse_json_text(rule.fixed_receivers_json, []))
         return [], mobiles, []

@@ -13,6 +13,8 @@ from autotask_api.api.runs import router as runs_router
 from autotask_api.api.scripts import router as scripts_router
 from autotask_api.api.tasks import router as tasks_router
 from autotask_api.api.templates import router as templates_router
+from autotask_api.api.theme_runs import router as theme_runs_router
+from autotask_api.api.theme_sources import router as theme_sources_router
 from autotask_api.config import get_settings
 from autotask_api.database import init_db
 from autotask_api.services.scheduler import scheduler_service
@@ -31,6 +33,8 @@ app.include_router(tasks_router)
 app.include_router(rules_router)
 app.include_router(runs_router)
 app.include_router(contacts_router)
+app.include_router(theme_sources_router)
+app.include_router(theme_runs_router)
 app.mount("/assets", StaticFiles(directory=frontend_dir / "assets"), name="assets")
 
 

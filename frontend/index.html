@@ -3,19 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>市局基础管控中心</title>
+  <title>基础管控中心任务平台</title>
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
   <div class="shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">市局基础管控中心</p>
-        <h1>脚本上传与短信规则控制台</h1>
-        <p class="hero-copy">离线单页前端，直接管理脚本版本、短信模板、任务频率、发送规则和运行记录。</p>
+        <p class="eyebrow">JCGKZX AUTOTASK</p>
+        <h1>脚本任务与主题监测控制台</h1>
+        <p class="hero-copy">
+          同时管理自定义脚本任务和主题监测源。主题监测支持一个数据源一次抓取、多主题分发；自定义监测继续沿用脚本上传与运行时配置模式。
+        </p>
       </div>
       <div class="hero-actions">
-        <div id="health-pill" class="pill pill-muted">检查中</div>
+        <div id="health-pill" class="pill">检查中</div>
         <button id="refresh-all" class="button button-secondary" type="button">刷新全部</button>
       </div>
     </header>
@@ -36,12 +38,24 @@
             <strong id="stat-templates">0</strong>
           </article>
           <article class="stat-card">
-            <span>任务</span>
+            <span>自定义任务</span>
             <strong id="stat-tasks">0</strong>
           </article>
           <article class="stat-card">
-            <span>最近运行</span>
+            <span>任务运行</span>
             <strong id="stat-runs">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>主题源</span>
+            <strong id="stat-theme-sources">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>主题</span>
+            <strong id="stat-theme-topics">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>主题运行</span>
+            <strong id="stat-theme-runs">0</strong>
           </article>
         </div>
         <pre id="flash" class="flash">系统就绪</pre>
@@ -50,7 +64,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>上传脚本</h2>
-          <p>ZIP 根目录需包含 <code>manifest.json</code></p>
+          <p>ZIP 根目录需要包含 <code>manifest.json</code></p>
         </div>
         <form id="script-form" class="form-stack">
           <input name="script_name" type="text" placeholder="脚本名称" required>
@@ -72,20 +86,20 @@
       <section class="panel">
         <div class="panel-head">
           <h2>短信模板</h2>
-          <p>模板变量使用 <code>{字段名}</code></p>
+          <p>模板变量使用 <code>{field_name}</code></p>
         </div>
         <form id="template-form" class="form-stack">
           <input name="template_name" type="text" placeholder="模板名称" required>
           <input name="template_code" type="text" placeholder="模板编码" required>
           <textarea name="template_content" rows="5" placeholder="模板内容" required></textarea>
-          <textarea name="render_example" rows="3" placeholder="示例说明，可选"></textarea>
+          <textarea name="render_example" rows="3" placeholder="渲染示例，可选"></textarea>
           <label class="checkbox">
             <input name="enabled" type="checkbox" checked>
             <span>启用模板</span>
           </label>
           <div class="inline-actions">
             <button class="button" type="submit">保存模板</button>
-            <button id="template-reset" class="button button-secondary" type="button">清空</button>
+            <button id="template-reset" class="button button-secondary" type="button">新建模板</button>
           </div>
         </form>
         <div id="template-list" class="list"></div>
@@ -93,10 +107,10 @@
 
       <section class="panel panel-span-2">
         <div class="panel-head">
-          <h2>任务与频率</h2>
-          <p>支持分钟 / 小时频率，任务运行参数以 JSON 配置</p>
+          <h2>自定义监测任务</h2>
+          <p>继续沿用脚本 + 模板 + 规则的原有模式</p>
         </div>
-        <div id="task-current" class="banner">当前未选中任务</div>
+        <div id="task-current" class="banner">当前未选中自定义任务</div>
         <form id="task-form" class="form-stack">
           <input name="task_name" type="text" placeholder="任务名称" required>
           <div class="inline-fields">
@@ -105,15 +119,15 @@
             <select id="task-template-id" name="message_template_id"></select>
           </div>
           <div class="inline-fields inline-fields-compact">
-            <input name="dedup_window_minutes" type="number" min="0" value="720" placeholder="去重分钟数">
+            <input name="dedup_window_minutes" type="number" min="0" value="720" placeholder="去重窗口(分钟)">
             <input name="schedule_interval_value" type="number" min="1" value="20" placeholder="频率值">
             <select name="schedule_interval_unit">
               <option value="minute">分钟</option>
               <option value="hour">小时</option>
             </select>
           </div>
-          <input name="dedup_key_expr" type="text" placeholder="去重表达式，可选，例如 case_no + mobile">
-          <textarea name="runtime_config" rows="5" placeholder='运行配置 JSON，如 {"sms_business_name":"治安基础管控中心","sms_userport":"0006"}'>{}</textarea>
+          <input name="dedup_key_expr" type="text" placeholder="去重表达式，可选">
+          <textarea name="runtime_config" rows="5" placeholder='运行配置 JSON，如 {"disable_sms": true}'>{}</textarea>
           <label class="checkbox">
             <input name="enabled" type="checkbox" checked>
             <span>启用任务</span>
@@ -121,8 +135,8 @@
           <div class="inline-actions">
             <button class="button" type="submit">保存任务</button>
             <button id="task-reset" class="button button-secondary" type="button">新建任务</button>
-            <button id="task-run-dry" class="button button-ghost" type="button">手动演练</button>
-            <button id="task-run-live" class="button button-danger" type="button">立即发送</button>
+            <button id="task-run-dry" class="button button-ghost" type="button">演练</button>
+            <button id="task-run-live" class="button button-danger" type="button">立即执行</button>
           </div>
         </form>
         <div id="task-list" class="list"></div>
@@ -130,18 +144,18 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>发送规则</h2>
-          <p>规则绑定当前选中任务</p>
+          <h2>自定义任务接收规则</h2>
+          <p>绑定当前选中的自定义任务</p>
         </div>
         <form id="rule-form" class="form-stack">
           <input name="rule_name" type="text" placeholder="规则名称" required>
-          <select name="rule_type" id="rule-type" required>
-            <option value="fixed_receivers">固定人员</option>
+          <select name="rule_type" required>
+            <option value="fixed_receivers">固定接收人</option>
             <option value="field_match">字段直接匹配</option>
             <option value="field_match_with_ancestors">字段匹配并带上级单位</option>
           </select>
           <div class="inline-fields">
-            <input name="source_field" type="text" placeholder="源字段名，如 dwdm">
+            <input name="source_field" type="text" placeholder="源字段名，如 sspcsdm">
             <select name="target_match_field">
               <option value="sspcsdm">sspcsdm</option>
               <option value="xqdm">xqdm</option>
@@ -163,7 +177,7 @@
           </div>
           <div class="inline-actions">
             <button class="button" type="submit">保存规则</button>
-            <button id="rule-reset" class="button button-secondary" type="button">清空</button>
+            <button id="rule-reset" class="button button-secondary" type="button">新建规则</button>
           </div>
         </form>
         <div id="rule-list" class="list"></div>
@@ -171,8 +185,120 @@
 
       <section class="panel">
         <div class="panel-head">
+          <h2>主题监测源</h2>
+          <p>一个源一次抓取，多个主题复用同一批数据</p>
+        </div>
+        <div id="theme-source-current" class="banner">当前未选中主题源</div>
+        <form id="theme-source-form" class="form-stack">
+          <input name="source_name" type="text" placeholder="主题源名称" required>
+          <div class="inline-fields">
+            <input name="source_code" type="text" placeholder="主题源编码" required>
+            <select name="source_type">
+              <option value="dsjfx_case_list">dsjfx_case_list</option>
+            </select>
+          </div>
+          <div class="inline-fields inline-fields-compact">
+            <input name="schedule_interval_value" type="number" min="1" value="20" placeholder="频率值">
+            <select name="schedule_interval_unit">
+              <option value="minute">分钟</option>
+              <option value="hour">小时</option>
+            </select>
+            <input name="schedule_timezone" type="text" value="Asia/Shanghai" placeholder="时区">
+          </div>
+          <textarea name="source_config" rows="8" placeholder='主题源配置 JSON，如 {"login_url":"...","api_url":"...","credential_ref":{"username_env":"LOGIN_USERNAME","password_env":"LOGIN_PASSWORD"}}'>{}</textarea>
+          <label class="checkbox">
+            <input name="enabled" type="checkbox" checked>
+            <span>启用主题源</span>
+          </label>
+          <div class="inline-actions">
+            <button class="button" type="submit">保存主题源</button>
+            <button id="theme-source-reset" class="button button-secondary" type="button">新建主题源</button>
+            <button id="theme-source-run-dry" class="button button-ghost" type="button">演练</button>
+            <button id="theme-source-run-live" class="button button-danger" type="button">立即执行</button>
+          </div>
+        </form>
+        <div id="theme-source-list" class="list"></div>
+      </section>
+
+      <section class="panel panel-span-2">
+        <div class="panel-head">
+          <h2>主题配置</h2>
+          <p>绑定当前选中的主题源</p>
+        </div>
+        <div id="theme-topic-current" class="banner">当前未选中主题</div>
+        <form id="theme-topic-form" class="form-stack">
+          <input name="theme_name" type="text" placeholder="主题名称" required>
+          <div class="inline-fields">
+            <input name="theme_code" type="text" placeholder="主题编码" required>
+            <select id="theme-topic-template-id" name="message_template_id"></select>
+          </div>
+          <div class="inline-fields inline-fields-compact">
+            <input name="priority" type="number" value="100" placeholder="优先级">
+            <select name="dedup_mode">
+              <option value="permanent">永久不重发</option>
+              <option value="window">按时间窗口重发</option>
+            </select>
+            <input name="dedup_window_minutes" type="number" min="1" placeholder="时间窗口(分钟)">
+          </div>
+          <input name="dedup_key_template" type="text" value="{event_key}" placeholder="去重键模板">
+          <textarea name="filter_expr" rows="8" placeholder='命中过滤 JSON，如 {"all":[{"field":"caseMarkNo","op":"contains_any","value":["01020201"]}]}'>{}</textarea>
+          <label class="checkbox">
+            <input name="enabled" type="checkbox" checked>
+            <span>启用主题</span>
+          </label>
+          <div class="inline-actions">
+            <button class="button" type="submit">保存主题</button>
+            <button id="theme-topic-reset" class="button button-secondary" type="button">新建主题</button>
+          </div>
+        </form>
+        <div id="theme-topic-list" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>主题接收规则</h2>
+          <p>绑定当前选中的主题</p>
+        </div>
+        <form id="theme-receiver-rule-form" class="form-stack">
+          <input name="rule_name" type="text" placeholder="规则名称" required>
+          <select name="rule_type" required>
+            <option value="fixed_receivers">固定接收人</option>
+            <option value="field_match">字段直接匹配</option>
+            <option value="field_match_with_ancestors">字段匹配并带上级单位</option>
+          </select>
+          <div class="inline-fields">
+            <input name="source_field" type="text" placeholder="源字段名，如 sspcsdm">
+            <select name="target_match_field">
+              <option value="sspcsdm">sspcsdm</option>
+              <option value="xqdm">xqdm</option>
+              <option value="county_code">county_code</option>
+              <option value="city_code">city_code</option>
+            </select>
+          </div>
+          <div class="inline-fields inline-fields-compact">
+            <input name="priority" type="number" value="100" placeholder="优先级">
+            <input name="target_mobile_field" type="text" value="mobile" placeholder="手机号字段">
+          </div>
+          <textarea name="fixed_receivers" rows="3" placeholder="固定手机号，逗号或换行分隔"></textarea>
+          <textarea name="filter_json" rows="3" placeholder='联系人过滤 JSON，如 {"rwzt":"在岗"}'>{}</textarea>
+          <div class="checkbox-grid">
+            <label class="checkbox"><input name="enabled" type="checkbox" checked><span>启用</span></label>
+            <label class="checkbox"><input name="include_self" type="checkbox" checked><span>本级</span></label>
+            <label class="checkbox"><input name="include_county" type="checkbox"><span>县级</span></label>
+            <label class="checkbox"><input name="include_city" type="checkbox"><span>市级</span></label>
+          </div>
+          <div class="inline-actions">
+            <button class="button" type="submit">保存规则</button>
+            <button id="theme-receiver-rule-reset" class="button button-secondary" type="button">新建规则</button>
+          </div>
+        </form>
+        <div id="theme-receiver-rule-list" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
           <h2>联系人与运行记录</h2>
-          <p>快速验证 `org_contact` 与最近执行结果</p>
+          <p>查看联系人、任务运行和主题运行明细</p>
         </div>
         <form id="contact-form" class="form-stack">
           <input name="keyword" type="text" placeholder="姓名 / 县区 / 派出所">
@@ -183,11 +309,21 @@
           <button class="button button-secondary" type="submit">查询联系人</button>
         </form>
         <div id="contact-list" class="list compact-list"></div>
-        <div id="run-list" class="list"></div>
+        <div class="panel-head">
+          <h2>自定义任务运行</h2>
+          <p>查看当前选中任务的最近记录</p>
+        </div>
+        <div id="run-list" class="list compact-list"></div>
+        <div class="panel-head">
+          <h2>主题源运行</h2>
+          <p>查看当前选中主题源的最近记录</p>
+        </div>
+        <div id="theme-run-list" class="list compact-list"></div>
       </section>
     </main>
   </div>
 
   <script src="/assets/app.js" defer></script>
+  <script src="/assets/theme.js" defer></script>
 </body>
 </html>
