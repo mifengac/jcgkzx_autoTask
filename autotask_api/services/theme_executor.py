@@ -30,7 +30,7 @@ from autotask_api.services.task_fields import (
     normalize_non_null_text_output,
 )
 from autotask_api.services.theme_adapters import get_theme_source_adapter
-from autotask_api.services.theme_filter_engine import matches_filter_expr
+from autotask_api.services.theme_filter_engine import derive_hit_keyword, matches_filter_expr
 
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
@@ -97,13 +97,22 @@ def record_theme_sms_log(
     db.add(log)
 
 
+def build_theme_variables(topic: ThemeTopic, row: dict[str, Any]) -> dict[str, Any]:
+    variables = dict(row)
+    extra_vars = row.get("message_vars")
+    if isinstance(extra_vars, dict):
+        variables.update(extra_vars)
+    filter_expr = parse_json_text(topic.filter_expr_json, {})
+    hit_keyword = derive_hit_keyword(row, filter_expr)
+    variables["hit_keyword"] = hit_keyword
+    variables["命中关键字"] = hit_keyword
+    return variables
+
+
 def build_theme_message(topic: ThemeTopic, row: dict[str, Any]) -> str:
     template: MessageTemplate | None = topic.message_template
     if template:
-        variables = dict(row)
-        extra_vars = row.get("message_vars")
-        if isinstance(extra_vars, dict):
-            variables.update(extra_vars)
+        variables = build_theme_variables(topic, row)
         return render_template(template.template_content, variables)
 
     for key in ("message_text", "content", "sms_content"):
@@ -114,10 +123,7 @@ def build_theme_message(topic: ThemeTopic, row: dict[str, Any]) -> str:
 
 
 def build_theme_dedup_key(topic: ThemeTopic, row: dict[str, Any]) -> str:
-    variables = dict(row)
-    extra_vars = row.get("message_vars")
-    if isinstance(extra_vars, dict):
-        variables.update(extra_vars)
+    variables = build_theme_variables(topic, row)
     rendered = render_template(topic.dedup_key_template, variables).strip()
     return rendered or str(row.get("event_key") or row.get("event_id") or uuid4().hex)
 

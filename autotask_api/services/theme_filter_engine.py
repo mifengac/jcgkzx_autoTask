@@ -4,6 +4,21 @@ import re
 from typing import Any
 
 
+FIELD_LABELS = {
+    "caseContents": "报警内容",
+    "case_contents": "报警内容",
+    "occurAddress": "地点",
+    "occur_address": "地点",
+    "replies": "处警情况",
+    "callTime": "时间",
+    "occurTime": "时间",
+    "caseNo": "警情编号",
+    "case_no": "警情编号",
+    "dutyDeptName": "派出所",
+    "dutyDeptNo": "派出所代码",
+}
+
+
 def _coerce_iterable(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -39,6 +54,16 @@ def _resolve_field_value(record: dict[str, Any], field: str) -> Any:
             return current
 
     return record.get(field)
+
+
+def _field_label(field: str, expr: Any) -> str:
+    if isinstance(expr, dict):
+        custom_label = str(expr.get("label") or expr.get("field_label") or "").strip()
+        if custom_label:
+            return custom_label
+    if not field:
+        return ""
+    return FIELD_LABELS.get(field, field)
 
 
 def _contains(actual: Any, expected: Any) -> bool:
@@ -86,23 +111,113 @@ def _compare(actual: Any, expected: Any, op: str) -> bool:
     raise ValueError(f"Unsupported filter op: {op}")
 
 
-def matches_filter_expr(record: dict[str, Any], expr: Any) -> bool:
+def _first_matching_candidate(actual: Any, expected: Any) -> str:
+    candidates = [str(item) for item in _coerce_iterable(expected) if str(item)]
+    if not candidates:
+        return ""
+
+    if isinstance(actual, (list, tuple, set)):
+        actual_values = {str(item) for item in actual}
+        for candidate in candidates:
+            if candidate in actual_values:
+                return candidate
+        return ""
+
+    actual_text = str(actual or "")
+    for candidate in candidates:
+        if candidate in actual_text:
+            return candidate
+    return ""
+
+
+def _leaf_keyword(actual: Any, expected: Any, op: str) -> str:
+    if op == "contains_any":
+        return _first_matching_candidate(actual, expected)
+    if op == "contains":
+        if isinstance(expected, (list, tuple, set)):
+            return _first_matching_candidate(actual, expected)
+        return str(expected or "")
+    if op == "eq":
+        if expected not in (None, ""):
+            return str(expected)
+        if actual not in (None, ""):
+            return str(actual)
+        return ""
+    if op == "in":
+        if actual not in (None, ""):
+            return str(actual)
+        return _first_matching_candidate(actual, expected)
+    if op == "regex":
+        pattern = str(expected or "")
+        try:
+            match = re.search(pattern, str(actual or ""))
+        except re.error:
+            return ""
+        if match:
+            return match.group(0)
+        return pattern
+    return ""
+
+
+def _match_expr(record: dict[str, Any], expr: Any) -> tuple[bool, str, str]:
     if expr in (None, "", {}):
-        return True
+        return True, "", ""
     if not isinstance(expr, dict):
-        return False
+        return False, "", ""
 
     if "all" in expr:
+        label = ""
+        keyword = ""
         items = expr.get("all") or []
-        return all(matches_filter_expr(record, item) for item in items)
+        for item in items:
+            matched, item_label, item_keyword = _match_expr(record, item)
+            if not matched:
+                return False, "", ""
+            if not keyword and item_keyword:
+                keyword = item_keyword
+                label = item_label or label
+            if not label and item_label:
+                label = item_label
+        return True, label, keyword
     if "any" in expr:
         items = expr.get("any") or []
-        return any(matches_filter_expr(record, item) for item in items)
+        matched_any = False
+        label = ""
+        keyword = ""
+        for item in items:
+            matched, item_label, item_keyword = _match_expr(record, item)
+            if not matched:
+                continue
+            matched_any = True
+            if item_keyword:
+                return True, item_label, item_keyword
+            if not label and item_label:
+                label = item_label
+        return matched_any, label, keyword
     if "not" in expr:
-        return not matches_filter_expr(record, expr.get("not"))
+        matched, _, _ = _match_expr(record, expr.get("not"))
+        return not matched, "", ""
 
     field = str(expr.get("field") or "").strip()
     op = str(expr.get("op") or "eq").strip().lower()
     actual = _resolve_field_value(record, field)
     expected = expr.get("value")
-    return _compare(actual, expected, op)
+    matched = _compare(actual, expected, op)
+    if not matched:
+        return False, "", ""
+    return True, _field_label(field, expr), _leaf_keyword(actual, expected, op)
+
+
+def matches_filter_expr(record: dict[str, Any], expr: Any) -> bool:
+    return _match_expr(record, expr)[0]
+
+
+def derive_hit_keyword(record: dict[str, Any], expr: Any) -> str:
+    matched, label, keyword = _match_expr(record, expr)
+    if not matched:
+        return ""
+    if label and keyword:
+        return f"{label}→{keyword}"
+    if keyword:
+        return keyword
+    return label

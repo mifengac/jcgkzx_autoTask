@@ -87,7 +87,7 @@ window.renderThemeSummary = function renderThemeSummary() {
   dom.statThemeSources.textContent = state.themeSources.length;
   dom.statThemeTopics.textContent = state.themeSources.reduce((count, item) => count + Number(item.topic_count || 0), 0);
   dom.statThemeRuns.textContent = state.themeRuns.length;
-  const themeText = state.selectedThemeSourceId ? `；主题源 ${state.selectedThemeSourceId} 最近运行 ${state.themeRuns.length} 条` : "；未选中主题源";
+  const themeText = state.selectedThemeSourceId ? `；数据源 ${state.selectedThemeSourceId} 最近运行 ${state.themeRuns.length} 条` : "；未选中数据源";
   dom.summaryText.textContent += themeText;
 };
 
@@ -100,8 +100,8 @@ function currentThemeTopic() {
 function renderThemeSources() {
   const { dom, state, emptyHtml, escapeHtml } = window;
   const source = state.themeSourceDetail;
-  dom.themeSourceCurrent.textContent = source ? `当前主题源: ${source.source_name} / ${source.source_code}` : "当前未选中主题源";
-  if (!state.themeSources.length) return dom.themeSourceList.innerHTML = emptyHtml("暂无主题源");
+  dom.themeSourceCurrent.textContent = source ? `当前数据源: ${source.source_name} / ${source.source_code}` : "当前未选中数据源";
+  if (!state.themeSources.length) return dom.themeSourceList.innerHTML = emptyHtml("暂无数据源");
   dom.themeSourceList.innerHTML = state.themeSources.map((item) => `
     <article class="list-item ${item.id === state.selectedThemeSourceId ? "selected" : ""}">
       <div class="panel-head"><h3>${escapeHtml(item.source_name)}</h3><span class="status ${item.enabled ? "" : "failed"}">${item.enabled ? "启用" : "停用"}</span></div>
@@ -114,9 +114,9 @@ function renderThemeSources() {
 function renderThemeTopics() {
   const { dom, state, emptyHtml, escapeHtml } = window;
   const topic = currentThemeTopic();
-  dom.themeTopicCurrent.textContent = topic ? `当前主题: ${topic.theme_name} / ${topic.theme_code}` : state.themeSourceDetail ? "当前主题源未选中主题" : "请先选中主题源";
-  if (!state.themeSourceDetail) return dom.themeTopicList.innerHTML = emptyHtml("请先选中主题源");
-  if (!(state.themeSourceDetail.topics || []).length) return dom.themeTopicList.innerHTML = emptyHtml("当前主题源暂无主题");
+  dom.themeTopicCurrent.textContent = topic ? `当前主题: ${topic.theme_name} / ${topic.theme_code}` : state.themeSourceDetail ? "当前数据源下未选中主题" : "请先选中数据源";
+  if (!state.themeSourceDetail) return dom.themeTopicList.innerHTML = emptyHtml("请先选中数据源");
+  if (!(state.themeSourceDetail.topics || []).length) return dom.themeTopicList.innerHTML = emptyHtml("当前数据源暂无主题");
   dom.themeTopicList.innerHTML = state.themeSourceDetail.topics.map((item) => `
     <article class="list-item ${item.id === state.selectedThemeTopicId ? "selected" : ""}">
       <div class="panel-head"><h3>${escapeHtml(item.theme_name)}</h3><span class="status ${item.enabled ? "" : "failed"}">${item.enabled ? "启用" : "停用"}</span></div>
@@ -140,7 +140,7 @@ function renderThemeRuns() {
   dom.themeRunList.innerHTML = state.themeRuns.map((run) => `
     <article class="list-item">
       <div class="panel-head"><h4>${escapeHtml(run.run_no)}</h4><span class="status ${String(run.status).includes("fail") ? "failed" : ""}">${escapeHtml(run.status)}</span></div>
-      <div class="item-meta">主题源: ${run.source_id} / 抓取: ${run.fetched_count} / 命中: ${run.matched_count} / 发送: ${run.send_count}<br>开始: ${escapeHtml(formatTime(run.started_at))}<br>结束: ${escapeHtml(formatTime(run.finished_at))}</div>
+      <div class="item-meta">数据源: ${run.source_id} / 抓取: ${run.fetched_count} / 命中: ${run.matched_count} / 发送: ${run.send_count}<br>开始: ${escapeHtml(formatTime(run.started_at))}<br>结束: ${escapeHtml(formatTime(run.finished_at))}</div>
       <div class="item-actions"><button class="small-button" data-action="view-theme-run" data-id="${run.id}" type="button">查看详情</button></div>
     </article>
   `).join("");
@@ -155,7 +155,7 @@ async function submitThemeSource(event) {
     let sourceId = state.editingThemeSourceId;
     if (sourceId) await api(`/api/theme-sources/${sourceId}`, jsonRequest("PUT", payload));
     else { const created = await api("/api/theme-sources", jsonRequest("POST", payload)); sourceId = created.id; state.selectedThemeSourceId = sourceId; }
-    flash(`主题源 ${sourceId} 保存成功`);
+    flash(`数据源 ${sourceId} 保存成功`);
     resetThemeSourceForm();
     await window.loadThemeSources();
     await window.loadThemeRuns();
@@ -166,7 +166,7 @@ async function submitThemeSource(event) {
 async function submitThemeTopic(event) {
   event.preventDefault();
   const { dom, state, api, jsonRequest, parseJson, flash, renderSummary } = window;
-  if (!state.selectedThemeSourceId) return flash("请先选中主题源", true);
+  if (!state.selectedThemeSourceId) return flash("请先选中数据源", true);
   try {
     const form = new FormData(dom.themeTopicForm);
     const dedupMode = form.get("dedup_mode");
@@ -199,10 +199,10 @@ async function submitThemeReceiverRule(event) {
 
 async function runThemeSource(dryRun) {
   const { state, api, jsonRequest, flash, renderSummary } = window;
-  if (!state.selectedThemeSourceId) return flash("请先选中主题源", true);
+  if (!state.selectedThemeSourceId) return flash("请先选中数据源", true);
   try {
     const run = await api(`/api/theme-sources/${state.selectedThemeSourceId}/run`, jsonRequest("POST", { dry_run: dryRun, context_override: {} }));
-    flash(`${dryRun ? "主题演练" : "主题执行"}已触发，run_id=${run.id}`);
+    flash(`${dryRun ? "数据源演练" : "数据源执行"}已触发，run_id=${run.id}`);
     await window.loadThemeRuns();
     renderSummary();
   } catch (error) { flash(error.message, true); }

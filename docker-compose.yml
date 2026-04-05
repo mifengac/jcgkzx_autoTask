@@ -1,12 +1,13 @@
 services:
   autotask:
-    image: jcgkzx-autotask:offline-20260311-timefix
+    image: ${IMAGE_NAME:-jcgkzx-autotask:latest}
+    pull_policy: never
     container_name: jcgkzx-autotask
     restart: unless-stopped
-    environment:
-      - TZ=Asia/Shanghai
     env_file:
-      - ${ENV_FILE:-.env}
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
     ports:
       - "${APP_PORT:-8000}:8000"
     extra_hosts:

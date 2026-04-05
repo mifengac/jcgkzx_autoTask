@@ -473,7 +473,7 @@ class OrgContact(TimestampMixin, Base):
     rwzt: Mapped[str | None] = mapped_column(Text)
     raw_lxdh: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
-    remark: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    remark: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
 
     phones: Mapped[list["OrgContactPhone"]] = relationship(
         back_populates="contact", cascade="all, delete-orphan", order_by="OrgContactPhone.id.asc()"

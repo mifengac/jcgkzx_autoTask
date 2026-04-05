@@ -51,7 +51,7 @@ WITH inserted_contacts AS (
         NULLIF(BTRIM(rwzt), '') AS rwzt,
         NULLIF(BTRIM(lxdh), '') AS raw_lxdh,
         'active' AS status,
-        NULLIF(BTRIM(bz), '') AS remark
+        COALESCE(NULLIF(BTRIM(bz), ''), '__EMPTY_TEXT__') AS remark
     FROM ywdata.b_dxpt_mdjfyj
     RETURNING id, raw_lxdh
 ),

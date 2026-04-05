@@ -337,7 +337,7 @@ CREATE TABLE IF NOT EXISTS jcgkzx_autotask.org_contact (
     rwzt TEXT,
     raw_lxdh TEXT,
     status TEXT NOT NULL DEFAULT 'active',
-    remark TEXT NOT NULL DEFAULT '',
+    remark TEXT NOT NULL DEFAULT '__EMPTY_TEXT__',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_org_contact_unit_level CHECK (

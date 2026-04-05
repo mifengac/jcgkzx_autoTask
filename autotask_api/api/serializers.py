@@ -286,6 +286,6 @@ def serialize_contact(contact: OrgContact) -> ContactRead:
         zw=contact.zw,
         rwzt=contact.rwzt,
         status=contact.status,
-        remark=contact.remark,
+        remark=normalize_non_null_text_output(contact.remark),
         phones=[serialize_contact_phone(phone) for phone in contact.phones],
     )

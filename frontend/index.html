@@ -13,7 +13,7 @@
         <p class="eyebrow">JCGKZX AUTOTASK</p>
         <h1>脚本任务与主题监测控制台</h1>
         <p class="hero-copy">
-          同时管理自定义脚本任务和主题监测源。主题监测支持一个数据源一次抓取、多主题分发；自定义监测继续沿用脚本上传与运行时配置模式。
+          同时管理自定义脚本任务和数据源监测。数据源支持一次抓取、多主题分发；自定义监测继续沿用脚本上传与运行时配置模式。
         </p>
       </div>
       <div class="hero-actions">
@@ -46,7 +46,7 @@
             <strong id="stat-runs">0</strong>
           </article>
           <article class="stat-card">
-            <span>主题源</span>
+            <span>数据源</span>
             <strong id="stat-theme-sources">0</strong>
           </article>
           <article class="stat-card">
@@ -185,14 +185,14 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>主题监测源</h2>
+          <h2>数据源配置</h2>
           <p>一个源一次抓取，多个主题复用同一批数据</p>
         </div>
-        <div id="theme-source-current" class="banner">当前未选中主题源</div>
+        <div id="theme-source-current" class="banner">当前未选中数据源</div>
         <form id="theme-source-form" class="form-stack">
-          <input name="source_name" type="text" placeholder="主题源名称" required>
+          <input name="source_name" type="text" placeholder="数据源名称" required>
           <div class="inline-fields">
-            <input name="source_code" type="text" placeholder="主题源编码" required>
+            <input name="source_code" type="text" placeholder="数据源编码" required>
             <select name="source_type">
               <option value="dsjfx_case_list">dsjfx_case_list</option>
             </select>
@@ -205,14 +205,14 @@
             </select>
             <input name="schedule_timezone" type="text" value="Asia/Shanghai" placeholder="时区">
           </div>
-          <textarea name="source_config" rows="8" placeholder='主题源配置 JSON，如 {"login_url":"...","api_url":"...","credential_ref":{"username_env":"LOGIN_USERNAME","password_env":"LOGIN_PASSWORD"}}'>{}</textarea>
+          <textarea name="source_config" rows="8" placeholder='数据源配置 JSON，如 {"login_url":"...","api_url":"...","credential_ref":{"username_env":"LOGIN_USERNAME","password_env":"LOGIN_PASSWORD"}}'>{}</textarea>
           <label class="checkbox">
             <input name="enabled" type="checkbox" checked>
-            <span>启用主题源</span>
+            <span>启用数据源</span>
           </label>
           <div class="inline-actions">
-            <button class="button" type="submit">保存主题源</button>
-            <button id="theme-source-reset" class="button button-secondary" type="button">新建主题源</button>
+            <button class="button" type="submit">保存数据源</button>
+            <button id="theme-source-reset" class="button button-secondary" type="button">新建数据源</button>
             <button id="theme-source-run-dry" class="button button-ghost" type="button">演练</button>
             <button id="theme-source-run-live" class="button button-danger" type="button">立即执行</button>
           </div>
@@ -223,7 +223,7 @@
       <section class="panel panel-span-2">
         <div class="panel-head">
           <h2>主题配置</h2>
-          <p>绑定当前选中的主题源</p>
+          <p>绑定当前选中的数据源</p>
         </div>
         <div id="theme-topic-current" class="banner">当前未选中主题</div>
         <form id="theme-topic-form" class="form-stack">
@@ -315,8 +315,8 @@
         </div>
         <div id="run-list" class="list compact-list"></div>
         <div class="panel-head">
-          <h2>主题源运行</h2>
-          <p>查看当前选中主题源的最近记录</p>
+          <h2>数据源运行</h2>
+          <p>查看当前选中数据源的最近记录</p>
         </div>
         <div id="theme-run-list" class="list compact-list"></div>
       </section>
