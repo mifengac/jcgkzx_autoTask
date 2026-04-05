@@ -1,435 +1,717 @@
+import { api } from "./core/api.js";
+import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, textBlock } from "./core/ui.js";
+import { overviewSection } from "./sections/overview.js";
+import { resultsSection } from "./sections/results.js";
+import { runsSection } from "./sections/runs.js";
+import { smsLogsSection } from "./sections/smsLogs.js";
+import { sourcesSection } from "./sections/sources.js";
+import { tasksSection } from "./sections/tasks.js";
+import { templatesSection } from "./sections/templates.js";
+import { topicsSection } from "./sections/topics.js";
+
+const sections = [
+  overviewSection,
+  sourcesSection,
+  topicsSection,
+  templatesSection,
+  resultsSection,
+  smsLogsSection,
+  runsSection,
+  tasksSection,
+];
+
+const sectionMap = Object.fromEntries(sections.map((section) => [section.key, section]));
+
 const state = {
+  healthOk: null,
+  route: { primary: "overview", secondary: "home" },
   scripts: [],
   templates: [],
   tasks: [],
-  runs: [],
-  contacts: [],
+  themeSources: [],
+  themeSourceDetailsById: {},
+  themeSourceDetail: null,
+  selectedSourceId: null,
+  selectedTopicId: null,
   selectedTaskId: null,
-  editingTemplateId: null,
+  editingSourceId: null,
   editingTaskId: null,
-  editingRuleId: null,
+  editingTemplateId: null,
+  editingTopicRuleId: null,
+  editingTaskRuleId: null,
+  overview: {
+    themeRuns: [],
+    taskRuns: [],
+    failedSmsLogs: [],
+  },
+  themeResultPage: {
+    items: [],
+    total: 0,
+    limit: 20,
+    offset: 0,
+    filters: {
+      source_id: null,
+      topic_id: null,
+      send_status: "",
+      keyword: "",
+      start_time: "",
+      end_time: "",
+    },
+  },
+  themeSmsLogPage: {
+    items: [],
+    total: 0,
+    limit: 20,
+    offset: 0,
+    filters: {
+      source_id: null,
+      topic_id: null,
+      status: "",
+      mobile: "",
+    },
+  },
+  themeRunPage: {
+    items: [],
+    total: 0,
+    limit: 20,
+    offset: 0,
+    filters: {
+      source_id: null,
+      topic_id: null,
+      status: "",
+    },
+  },
+  taskRunPage: {
+    items: [],
+    taskId: null,
+  },
+  contacts: {
+    items: [],
+    total: 0,
+    query: {
+      keyword: "",
+      sspcsdm: "",
+      xqdm: "",
+    },
+  },
+  drawer: {
+    open: false,
+    title: "详情",
+    eyebrow: "",
+    bodyHtml: "",
+  },
 };
 
 const dom = {};
-window.state = state;
-window.dom = dom;
+
+function getDefaultTab(primary) {
+  return sectionMap[primary]?.tabs?.[0]?.key || "home";
+}
+
+function parseHash() {
+  const raw = window.location.hash.replace(/^#/, "").trim();
+  if (!raw) {
+    return { primary: "overview", secondary: "home" };
+  }
+  const [primaryRaw, secondaryRaw] = raw.split("/");
+  const primary = sectionMap[primaryRaw] ? primaryRaw : "overview";
+  const secondary = sectionMap[primary].tabs.some((item) => item.key === secondaryRaw)
+    ? secondaryRaw
+    : getDefaultTab(primary);
+  return { primary, secondary };
+}
+
+function toDateTimeLocal(value) {
+  if (!value) {
+    return "";
+  }
+  return String(value).replace("T", " ").slice(0, 16).replace(" ", "T");
+}
+
+function buildQuery(params) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") {
+      return;
+    }
+    query.set(key, String(value));
+  });
+  return query.toString();
+}
+
+const app = {
+  state,
+  dom,
+  async init() {
+    this.cacheDom();
+    this.bindGlobalEvents();
+    await this.loadBootstrap();
+    this.syncRoute();
+    await this.renderRoute();
+  },
+  cacheDom() {
+    dom.primaryNav = document.querySelector("#primary-nav");
+    dom.secondaryNav = document.querySelector("#secondary-nav");
+    dom.secondaryTitle = document.querySelector("#secondary-title");
+    dom.sectionHeader = document.querySelector("#section-header");
+    dom.contentArea = document.querySelector("#content-area");
+    dom.flash = document.querySelector("#flash");
+    dom.healthPill = document.querySelector("#health-pill");
+    dom.drawer = document.querySelector("#detail-drawer");
+    dom.drawerBackdrop = document.querySelector("#drawer-backdrop");
+    dom.drawerTitle = document.querySelector("#drawer-title");
+    dom.drawerEyebrow = document.querySelector("#drawer-eyebrow");
+    dom.drawerBody = document.querySelector("#drawer-body");
+  },
+  bindGlobalEvents() {
+    document.querySelector("#refresh-all").addEventListener("click", async () => {
+      await this.loadBootstrap();
+      await this.renderRoute();
+      this.flash("全部数据已刷新。");
+    });
+    document.querySelector("#drawer-close").addEventListener("click", () => this.closeDrawer());
+    dom.drawerBackdrop.addEventListener("click", () => this.closeDrawer());
+    window.addEventListener("hashchange", async () => {
+      this.syncRoute();
+      await this.renderRoute();
+    });
+  },
+  syncRoute() {
+    state.route = parseHash();
+  },
+  navigate(primary, secondary = getDefaultTab(primary)) {
+    const hash = `#${primary}/${secondary}`;
+    if (window.location.hash === hash) {
+      this.syncRoute();
+      this.renderRoute();
+      return;
+    }
+    window.location.hash = hash;
+  },
+  async loadBootstrap() {
+    const results = await Promise.allSettled([
+      this.loadHealth(),
+      this.reloadScripts(),
+      this.reloadTemplates(),
+      this.reloadTasks(),
+      this.reloadThemeSources(),
+    ]);
+    const rejected = results.find((item) => item.status === "rejected");
+    if (rejected) {
+      this.flash(rejected.reason?.message || "部分数据加载失败。", true);
+    }
+  },
+  async loadHealth() {
+    try {
+      await api("/health");
+      state.healthOk = true;
+    } catch (error) {
+      state.healthOk = false;
+      this.flash(error.message, true);
+    }
+  },
+  async reloadScripts() {
+    state.scripts = await api("/api/scripts");
+  },
+  async reloadTemplates() {
+    state.templates = await api("/api/message-templates");
+  },
+  async reloadTasks() {
+    state.tasks = await api("/api/tasks");
+    if (!state.selectedTaskId && state.tasks[0]) {
+      state.selectedTaskId = state.tasks[0].id;
+    }
+    if (state.selectedTaskId && !state.tasks.some((item) => item.id === state.selectedTaskId)) {
+      state.selectedTaskId = state.tasks[0]?.id || null;
+    }
+    if (!state.taskRunPage.taskId && state.selectedTaskId) {
+      state.taskRunPage.taskId = state.selectedTaskId;
+    }
+  },
+  async ensureThemeSourceDetail(sourceId) {
+    if (!sourceId) {
+      state.themeSourceDetail = null;
+      state.selectedTopicId = null;
+      return null;
+    }
+    const detail = await api(`/api/theme-sources/${sourceId}`);
+    state.themeSourceDetailsById[sourceId] = detail;
+    if (sourceId === state.selectedSourceId) {
+      state.themeSourceDetail = detail;
+      const topics = detail.topics || [];
+      if (!state.selectedTopicId && topics[0]) {
+        state.selectedTopicId = topics[0].id;
+      }
+      if (state.selectedTopicId && !topics.some((item) => item.id === state.selectedTopicId)) {
+        state.selectedTopicId = topics[0]?.id || null;
+      }
+    }
+    return detail;
+  },
+  async reloadThemeSources() {
+    state.themeSources = await api("/api/theme-sources");
+    if (!state.selectedSourceId && state.themeSources[0]) {
+      state.selectedSourceId = state.themeSources[0].id;
+    }
+    if (state.selectedSourceId && !state.themeSources.some((item) => item.id === state.selectedSourceId)) {
+      state.selectedSourceId = state.themeSources[0]?.id || null;
+    }
+    await this.ensureThemeSourceDetail(state.selectedSourceId);
+  },
+  async setSelectedSource(sourceId) {
+    state.selectedSourceId = sourceId || null;
+    await this.ensureThemeSourceDetail(state.selectedSourceId);
+  },
+  async setSelectedTopic(topicId) {
+    state.selectedTopicId = topicId || null;
+    if (!state.selectedSourceId) {
+      return;
+    }
+    await this.ensureThemeSourceDetail(state.selectedSourceId);
+  },
+  async setSelectedTask(taskId) {
+    state.selectedTaskId = taskId || null;
+    if (state.selectedTaskId && !state.taskRunPage.taskId) {
+      state.taskRunPage.taskId = state.selectedTaskId;
+    }
+  },
+  getCurrentSource() {
+    return state.themeSourceDetail;
+  },
+  getCurrentTopic() {
+    return state.themeSourceDetail?.topics?.find((item) => item.id === state.selectedTopicId) || null;
+  },
+  getCurrentTask() {
+    return state.tasks.find((item) => item.id === state.selectedTaskId) || null;
+  },
+  getAvailableTopics() {
+    return state.themeSourceDetail?.topics || [];
+  },
+  getTopicsForSource(sourceId) {
+    if (!sourceId) {
+      return [];
+    }
+    if (sourceId === state.selectedSourceId) {
+      return this.getAvailableTopics();
+    }
+    return state.themeSourceDetailsById[sourceId]?.topics || [];
+  },
+  async refreshThemeResults() {
+    const page = state.themeResultPage;
+    const query = buildQuery({
+      ...page.filters,
+      start_time: page.filters.start_time ? `${page.filters.start_time}:00` : "",
+      end_time: page.filters.end_time ? `${page.filters.end_time}:00` : "",
+      limit: page.limit,
+      offset: page.offset,
+    });
+    const data = await api(`/api/theme-results?${query}`);
+    state.themeResultPage = { ...state.themeResultPage, ...data, filters: { ...state.themeResultPage.filters } };
+  },
+  async refreshThemeSmsLogs() {
+    const page = state.themeSmsLogPage;
+    const query = buildQuery({
+      ...page.filters,
+      limit: page.limit,
+      offset: page.offset,
+    });
+    const data = await api(`/api/theme-sms-logs?${query}`);
+    state.themeSmsLogPage = { ...state.themeSmsLogPage, ...data, filters: { ...state.themeSmsLogPage.filters } };
+  },
+  async refreshThemeRuns(overrides = null) {
+    if (overrides) {
+      state.themeRunPage.filters = {
+        ...state.themeRunPage.filters,
+        ...Object.fromEntries(
+          Object.entries(overrides).filter(([key]) => !["limit", "offset"].includes(key))
+        ),
+      };
+      if (overrides.limit !== undefined) {
+        state.themeRunPage.limit = overrides.limit;
+      }
+      if (overrides.offset !== undefined) {
+        state.themeRunPage.offset = overrides.offset;
+      }
+    }
+    const query = buildQuery({
+      ...state.themeRunPage.filters,
+      limit: state.themeRunPage.limit,
+      offset: state.themeRunPage.offset,
+    });
+    const items = await api(`/api/theme-runs?${query}`);
+    state.themeRunPage.items = items;
+    state.themeRunPage.total = items.length;
+  },
+  async refreshTaskRuns() {
+    const query = buildQuery({
+      task_id: state.taskRunPage.taskId || state.selectedTaskId,
+      limit: 50,
+    });
+    state.taskRunPage.items = await api(`/api/task-runs?${query}`);
+  },
+  async loadContacts(query = state.contacts.query) {
+    state.contacts.query = { ...state.contacts.query, ...query };
+    const queryString = buildQuery(state.contacts.query);
+    const data = await api(queryString ? `/api/contacts?${queryString}` : "/api/contacts");
+    state.contacts.items = data.items || [];
+    state.contacts.total = data.total || 0;
+  },
+  async loadOverviewData() {
+    const [themeRuns, taskRuns, failedSmsLogs] = await Promise.all([
+      api("/api/theme-runs?limit=5"),
+      api("/api/task-runs?limit=5"),
+      api("/api/theme-sms-logs?status=failed&limit=5&offset=0"),
+    ]);
+    state.overview.themeRuns = themeRuns;
+    state.overview.taskRuns = taskRuns;
+    state.overview.failedSmsLogs = failedSmsLogs.items || [];
+  },
+  getOverviewStats() {
+    const sourceCount = state.themeSources.length;
+    const topicCount = state.themeSources.reduce((sum, item) => sum + Number(item.topic_count || 0), 0);
+    return {
+      sourceCount,
+      topicCount,
+      templateCount: state.templates.length,
+      taskCount: state.tasks.length,
+      themeRunCount: state.overview.themeRuns.length,
+      taskRunCount: state.overview.taskRuns.length,
+      failedSmsCount: state.overview.failedSmsLogs.length,
+      alertCount: state.overview.failedSmsLogs.length,
+    };
+  },
+  resetThemeResultFilters() {
+    state.themeResultPage = {
+      ...state.themeResultPage,
+      offset: 0,
+      filters: {
+        source_id: null,
+        topic_id: null,
+        send_status: "",
+        keyword: "",
+        start_time: "",
+        end_time: "",
+      },
+    };
+  },
+  resetThemeSmsLogFilters() {
+    state.themeSmsLogPage = {
+      ...state.themeSmsLogPage,
+      offset: 0,
+      filters: {
+        source_id: null,
+        topic_id: null,
+        status: "",
+        mobile: "",
+      },
+    };
+  },
+  resetThemeRunFilters() {
+    state.themeRunPage = {
+      ...state.themeRunPage,
+      offset: 0,
+      filters: {
+        source_id: null,
+        topic_id: null,
+        status: "",
+      },
+    };
+  },
+  renderShell() {
+    dom.healthPill.textContent = state.healthOk === null ? "检查中" : state.healthOk ? "服务正常" : "服务异常";
+    dom.healthPill.className = `health-pill ${state.healthOk === null ? "" : state.healthOk ? "ok" : "bad"}`;
+
+    dom.primaryNav.innerHTML = sections.map((section) => `
+      <button class="nav-chip ${state.route.primary === section.key ? "active" : ""}" type="button" data-primary="${section.key}">
+        <strong>${escapeHtml(section.label)}</strong>
+        <span>${escapeHtml(section.description)}</span>
+      </button>
+    `).join("");
+    dom.primaryNav.querySelectorAll("[data-primary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.navigate(button.dataset.primary, getDefaultTab(button.dataset.primary));
+      });
+    });
+
+    const section = sectionMap[state.route.primary];
+    dom.secondaryTitle.textContent = section.label;
+    dom.secondaryNav.innerHTML = section.tabs.map((tab) => `
+      <button class="subnav-link ${state.route.secondary === tab.key ? "active" : ""}" type="button" data-secondary="${tab.key}">
+        <strong>${escapeHtml(tab.label)}</strong>
+        <span>${escapeHtml(tab.hint)}</span>
+      </button>
+    `).join("");
+    dom.secondaryNav.querySelectorAll("[data-secondary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.navigate(state.route.primary, button.dataset.secondary);
+      });
+    });
+
+    const metaPills = [];
+    if (state.selectedSourceId && state.route.primary !== "sources") {
+      metaPills.push(`<span class="meta-pill">当前数据源: ${escapeHtml(this.getCurrentSource()?.source_name || `#${state.selectedSourceId}`)}</span>`);
+    }
+    if (state.selectedTopicId && state.route.primary !== "topics") {
+      metaPills.push(`<span class="meta-pill">当前主题: ${escapeHtml(this.getCurrentTopic()?.theme_name || `#${state.selectedTopicId}`)}</span>`);
+    }
+    if (state.selectedTaskId && state.route.primary !== "tasks") {
+      metaPills.push(`<span class="meta-pill">当前任务: ${escapeHtml(this.getCurrentTask()?.task_name || `#${state.selectedTaskId}`)}</span>`);
+    }
+    dom.sectionHeader.innerHTML = `
+      <div>
+        <h2>${escapeHtml(section.label)}</h2>
+        <p>${escapeHtml(section.description)}</p>
+      </div>
+      <div class="meta">${metaPills.join("")}</div>
+    `;
+  },
+  async renderRoute() {
+    const section = sectionMap[state.route.primary];
+    try {
+      await section.load?.(this);
+      this.renderShell();
+      dom.contentArea.innerHTML = section.render(this);
+      section.bind?.(this);
+      this.renderDrawer();
+    } catch (error) {
+      dom.contentArea.innerHTML = emptyState(error.message);
+      this.flash(error.message, true);
+    }
+  },
+  flash(message, isError = false) {
+    if (!message) {
+      dom.flash.classList.add("hidden");
+      return;
+    }
+    dom.flash.textContent = String(message);
+    dom.flash.className = `flash ${isError ? "error" : ""}`;
+    window.clearTimeout(this.flashTimer);
+    this.flashTimer = window.setTimeout(() => {
+      dom.flash.classList.add("hidden");
+    }, 4200);
+  },
+  closeDrawer() {
+    state.drawer.open = false;
+    state.drawer.bodyHtml = "";
+    this.renderDrawer();
+  },
+  async openDrawer(type, id) {
+    state.drawer.open = true;
+    state.drawer.title = "加载中...";
+    state.drawer.eyebrow = "详情";
+    state.drawer.bodyHtml = '<div class="detail-block">正在加载详情...</div>';
+    this.renderDrawer();
+    try {
+      if (type === "theme-result") {
+        const detail = await api(`/api/theme-results/${id}`);
+        state.drawer.title = `${detail.topic_name} / ${detail.case_no || detail.event_key}`;
+        state.drawer.eyebrow = "命中结果";
+        state.drawer.bodyHtml = this.renderThemeResultDrawer(detail);
+      } else if (type === "theme-sms-log") {
+        const detail = await api(`/api/theme-sms-logs/${id}`);
+        state.drawer.title = `${detail.topic_name} / ${detail.mobile}`;
+        state.drawer.eyebrow = "短信发送记录";
+        state.drawer.bodyHtml = this.renderThemeSmsLogDrawer(detail);
+      } else if (type === "theme-run") {
+        const detail = await api(`/api/theme-runs/${id}`);
+        state.drawer.title = detail.run_no;
+        state.drawer.eyebrow = "数据源运行";
+        state.drawer.bodyHtml = this.renderThemeRunDrawer(detail);
+      } else if (type === "task-run") {
+        const detail = await api(`/api/task-runs/${id}`);
+        state.drawer.title = detail.run_no;
+        state.drawer.eyebrow = "自定义任务运行";
+        state.drawer.bodyHtml = this.renderTaskRunDrawer(detail);
+      }
+      this.renderDrawer();
+    } catch (error) {
+      state.drawer.title = "详情加载失败";
+      state.drawer.eyebrow = "详情";
+      state.drawer.bodyHtml = `<div class="detail-block">${escapeHtml(error.message)}</div>`;
+      this.renderDrawer();
+      this.flash(error.message, true);
+    }
+  },
+  renderDrawer() {
+    if (!state.drawer.open) {
+      dom.drawer.classList.add("hidden");
+      dom.drawerBackdrop.classList.add("hidden");
+      dom.drawer.setAttribute("aria-hidden", "true");
+      return;
+    }
+    dom.drawerTitle.textContent = state.drawer.title;
+    dom.drawerEyebrow.textContent = state.drawer.eyebrow;
+    dom.drawerBody.innerHTML = state.drawer.bodyHtml;
+    dom.drawer.classList.remove("hidden");
+    dom.drawerBackdrop.classList.remove("hidden");
+    dom.drawer.setAttribute("aria-hidden", "false");
+    this.bindDrawerActions();
+  },
+  bindDrawerActions() {
+    dom.drawerBody.querySelectorAll("[data-action='copy-text']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = dom.drawerBody.querySelector(button.dataset.target);
+        if (!target) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(target.textContent || "");
+          this.flash("短信内容已复制。");
+        } catch (error) {
+          this.flash("复制失败，请手动复制。", true);
+        }
+      });
+    });
+    dom.drawerBody.querySelectorAll("[data-action='drawer-open-detail']").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.openDrawer(button.dataset.type, Number(button.dataset.id));
+      });
+    });
+  },
+  renderThemeResultDrawer(detail) {
+    return `
+      <div class="detail-block">
+        <h3>基本信息</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>数据源</strong>${escapeHtml(detail.source_name)}</div>
+          <div class="detail-item"><strong>主题</strong>${escapeHtml(detail.topic_name)}</div>
+          <div class="detail-item"><strong>警情编号</strong>${escapeHtml(detail.case_no || "-")}</div>
+          <div class="detail-item"><strong>发送状态</strong>${statusBadge(detail.send_status)}</div>
+          <div class="detail-item"><strong>Oracle EID</strong><span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span></div>
+          <div class="detail-item"><strong>接收人</strong>${escapeHtml(detail.receiver_mobiles.join(", ") || "-")}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <h3>短信内容</h3>
+        ${textBlock(detail.rendered_message || "")}
+      </div>
+      <div class="detail-block">
+        <h3>命中规则</h3>
+        ${textBlock((detail.matched_rule_ids || []).join(", ") || "无")}
+      </div>
+      <div class="detail-block">
+        <h3>原始数据</h3>
+        ${jsonBlock(detail.raw_result)}
+      </div>
+    `;
+  },
+  renderThemeSmsLogDrawer(detail) {
+    return `
+      <div class="detail-block">
+        <h3>发送概要</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>数据源</strong>${escapeHtml(detail.source_name)}</div>
+          <div class="detail-item"><strong>主题</strong>${escapeHtml(detail.topic_name)}</div>
+          <div class="detail-item"><strong>手机号</strong>${escapeHtml(detail.mobile)}</div>
+          <div class="detail-item"><strong>发送状态</strong>${statusBadge(detail.status)}</div>
+          <div class="detail-item"><strong>Oracle EID</strong><span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span></div>
+          <div class="detail-item"><strong>关联命中状态</strong>${statusBadge(detail.result_send_status || "-")}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <div class="panel-header" style="margin-bottom:12px;">
+          <div><h3>短信内容</h3><p>支持复制后外部复核。</p></div>
+          <div><button class="small-button" type="button" data-action="copy-text" data-target="#sms-log-content">复制短信内容</button></div>
+        </div>
+        <pre id="sms-log-content" class="text-block">${escapeHtml(detail.content || "")}</pre>
+      </div>
+      <div class="detail-block">
+        <h3>失败原因 / 回执</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>失败原因</strong>${escapeHtml(detail.error_message || "-")}</div>
+          <div class="detail-item"><strong>平台回执</strong>${escapeHtml(detail.provider_msg_id || "-")}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <div class="panel-header" style="margin-bottom:12px;">
+          <div><h3>关联命中数据</h3><p>这里可以继续追到原始命中记录。</p></div>
+          ${detail.topic_result_id ? `<div><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">查看命中详情</button></div>` : ""}
+        </div>
+        ${jsonBlock(detail.raw_result)}
+      </div>
+    `;
+  },
+  renderThemeRunDrawer(detail) {
+    const resultRows = (detail.results || []).slice(0, 10).map((item) => `
+      <tr>
+        <td>${escapeHtml(item.case_no || item.event_key)}</td>
+        <td>${statusBadge(item.send_status)}</td>
+        <td>${escapeHtml((item.receiver_mobiles || []).join(", ") || "-")}</td>
+        <td><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">查看详情</button></td>
+      </tr>
+    `).join("");
+    const smsRows = (detail.sms_logs || []).slice(0, 10).map((item) => `
+      <tr>
+        <td>${formatTime(item.created_at)}</td>
+        <td>${escapeHtml(item.mobile)}</td>
+        <td>${statusBadge(item.status)}</td>
+        <td><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">查看详情</button></td>
+      </tr>
+    `).join("");
+    return `
+      <div class="detail-block">
+        <h3>运行摘要</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>运行号</strong><span class="mono">${escapeHtml(detail.run_no)}</span></div>
+          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
+          <div class="detail-item"><strong>抓取数量</strong>${detail.fetched_count}</div>
+          <div class="detail-item"><strong>命中数量</strong>${detail.matched_count}</div>
+          <div class="detail-item"><strong>发送数量</strong>${detail.send_count}</div>
+          <div class="detail-item"><strong>错误信息</strong>${escapeHtml(detail.error_message || "-")}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <h3>命中结果（前 10 条）</h3>
+        ${(detail.results || []).length ? `<div class="table-wrap"><table><thead><tr><th>警情</th><th>状态</th><th>接收人</th><th>操作</th></tr></thead><tbody>${resultRows}</tbody></table></div>` : emptyState("本次运行没有命中结果。")}
+      </div>
+      <div class="detail-block">
+        <h3>短信日志（前 10 条）</h3>
+        ${(detail.sms_logs || []).length ? `<div class="table-wrap"><table><thead><tr><th>时间</th><th>手机号</th><th>状态</th><th>操作</th></tr></thead><tbody>${smsRows}</tbody></table></div>` : emptyState("本次运行没有短信日志。")}
+      </div>
+    `;
+  },
+  renderTaskRunDrawer(detail) {
+    const resultRows = (detail.results || []).slice(0, 10).map((item) => `
+      <tr>
+        <td>${escapeHtml(item.event_key)}</td>
+        <td>${statusBadge(item.send_status)}</td>
+        <td>${escapeHtml((item.receiver_mobiles || []).join(", ") || "-")}</td>
+      </tr>
+    `).join("");
+    const smsRows = (detail.sms_logs || []).slice(0, 10).map((item) => `
+      <tr>
+        <td>${formatTime(item.created_at)}</td>
+        <td>${escapeHtml(item.mobile)}</td>
+        <td>${statusBadge(item.status)}</td>
+      </tr>
+    `).join("");
+    return `
+      <div class="detail-block">
+        <h3>运行摘要</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>运行号</strong><span class="mono">${escapeHtml(detail.run_no)}</span></div>
+          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
+          <div class="detail-item"><strong>结果数量</strong>${detail.result_count}</div>
+          <div class="detail-item"><strong>命中数量</strong>${detail.hit_count}</div>
+          <div class="detail-item"><strong>发送数量</strong>${detail.send_count}</div>
+          <div class="detail-item"><strong>错误信息</strong>${escapeHtml(detail.error_message || "-")}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <h3>命中结果（前 10 条）</h3>
+        ${(detail.results || []).length ? `<div class="table-wrap"><table><thead><tr><th>事件键</th><th>状态</th><th>接收人</th></tr></thead><tbody>${resultRows}</tbody></table></div>` : emptyState("本次运行没有命中结果。")}
+      </div>
+      <div class="detail-block">
+        <h3>短信日志（前 10 条）</h3>
+        ${(detail.sms_logs || []).length ? `<div class="table-wrap"><table><thead><tr><th>时间</th><th>手机号</th><th>状态</th></tr></thead><tbody>${smsRows}</tbody></table></div>` : emptyState("本次运行没有短信日志。")}
+      </div>
+    `;
+  },
+};
 
 document.addEventListener("DOMContentLoaded", () => {
-  bindDom();
-  bindEvents();
-  loadAll();
+  app.init().catch((error) => {
+    console.error(error);
+    app.flash(error.message || "前端初始化失败。", true);
+  });
 });
-
-function bindDom() {
-  dom.healthPill = document.querySelector("#health-pill");
-  dom.flash = document.querySelector("#flash");
-  dom.summaryText = document.querySelector("#summary-text");
-  dom.statScripts = document.querySelector("#stat-scripts");
-  dom.statTemplates = document.querySelector("#stat-templates");
-  dom.statTasks = document.querySelector("#stat-tasks");
-  dom.statRuns = document.querySelector("#stat-runs");
-  dom.scriptForm = document.querySelector("#script-form");
-  dom.scriptList = document.querySelector("#script-list");
-  dom.templateForm = document.querySelector("#template-form");
-  dom.templateList = document.querySelector("#template-list");
-  dom.taskForm = document.querySelector("#task-form");
-  dom.taskList = document.querySelector("#task-list");
-  dom.taskCurrent = document.querySelector("#task-current");
-  dom.ruleForm = document.querySelector("#rule-form");
-  dom.ruleList = document.querySelector("#rule-list");
-  dom.runList = document.querySelector("#run-list");
-  dom.contactForm = document.querySelector("#contact-form");
-  dom.contactList = document.querySelector("#contact-list");
-  dom.scriptSelect = document.querySelector("#task-script-id");
-  dom.scriptVersionSelect = document.querySelector("#task-script-version-id");
-  dom.templateSelect = document.querySelector("#task-template-id");
-  if (window.bindThemeDom) {
-    window.bindThemeDom();
-  }
-}
-
-function bindEvents() {
-  document.querySelector("#refresh-all").addEventListener("click", loadAll);
-  dom.scriptForm.addEventListener("submit", submitScript);
-  dom.templateForm.addEventListener("submit", submitTemplate);
-  dom.taskForm.addEventListener("submit", submitTask);
-  dom.ruleForm.addEventListener("submit", submitRule);
-  dom.contactForm.addEventListener("submit", submitContacts);
-  dom.scriptSelect.addEventListener("change", updateVersionSelect);
-  document.querySelector("#template-reset").addEventListener("click", resetTemplateForm);
-  document.querySelector("#task-reset").addEventListener("click", resetTaskForm);
-  document.querySelector("#rule-reset").addEventListener("click", resetRuleForm);
-  document.querySelector("#task-run-dry").addEventListener("click", () => runTask(true));
-  document.querySelector("#task-run-live").addEventListener("click", () => runTask(false));
-  dom.templateList.addEventListener("click", handleTemplateListClick);
-  dom.taskList.addEventListener("click", handleTaskListClick);
-  dom.ruleList.addEventListener("click", handleRuleListClick);
-  dom.runList.addEventListener("click", handleRunListClick);
-  if (window.bindThemeEvents) {
-    window.bindThemeEvents();
-  }
-}
-
-async function loadAll() {
-  await loadHealth();
-  await Promise.all([loadScripts(), loadTemplates(), loadTasks()]);
-  if (window.loadThemeSources) {
-    await window.loadThemeSources();
-  }
-  await loadRuns();
-  if (window.loadThemeRuns) {
-    await window.loadThemeRuns();
-  }
-  renderSummary();
-}
-
-async function loadHealth() {
-  try {
-    await api("/health");
-    dom.healthPill.textContent = "服务正常";
-    dom.healthPill.className = "pill pill-ok";
-  } catch (error) {
-    dom.healthPill.textContent = "服务异常";
-    dom.healthPill.className = "pill pill-bad";
-    flash(error.message, true);
-  }
-}
-
-async function loadScripts() {
-  state.scripts = await api("/api/scripts");
-  renderScripts();
-  updateScriptSelects();
-}
-
-async function loadTemplates() {
-  state.templates = await api("/api/message-templates");
-  renderTemplates();
-  updateTemplateSelect();
-  if (window.updateThemeTemplateSelect) {
-    window.updateThemeTemplateSelect();
-  }
-}
-
-async function loadTasks() {
-  state.tasks = await api("/api/tasks");
-  if (!state.selectedTaskId && state.tasks.length) state.selectedTaskId = state.tasks[0].id;
-  if (state.selectedTaskId && !state.tasks.some((item) => item.id === state.selectedTaskId)) {
-    state.selectedTaskId = state.tasks[0] ? state.tasks[0].id : null;
-  }
-  renderTasks();
-  renderRules();
-}
-
-async function loadRuns() {
-  const query = state.selectedTaskId ? `?task_id=${state.selectedTaskId}` : "";
-  state.runs = await api(`/api/task-runs${query}`);
-  renderRuns();
-}
-
-function currentTask() {
-  return state.tasks.find((item) => item.id === state.selectedTaskId) || null;
-}
-
-function renderSummary() {
-  dom.statScripts.textContent = state.scripts.length;
-  dom.statTemplates.textContent = state.templates.length;
-  dom.statTasks.textContent = state.tasks.length;
-  dom.statRuns.textContent = state.runs.length;
-  dom.summaryText.textContent = state.selectedTaskId
-    ? `当前选中任务 ${state.selectedTaskId}，最近任务运行 ${state.runs.length} 条`
-    : "当前未选中自定义任务";
-  if (window.renderThemeSummary) {
-    window.renderThemeSummary();
-  }
-}
-
-function renderScripts() {
-  if (!state.scripts.length) return dom.scriptList.innerHTML = emptyHtml("暂无脚本");
-  dom.scriptList.innerHTML = state.scripts.map((script) => `
-    <article class="list-item">
-      <h3>${escapeHtml(script.script_name)}</h3>
-      <div class="item-meta">
-        编码: ${escapeHtml(script.script_code)}<br>
-        入口: ${escapeHtml(script.entry_file)}#${escapeHtml(script.entry_func || "run")}<br>
-        版本: ${(script.versions || []).map((v) => escapeHtml(v.version_no)).join(", ") || "暂无"}
-      </div>
-    </article>
-  `).join("");
-}
-
-function renderTemplates() {
-  if (!state.templates.length) return dom.templateList.innerHTML = emptyHtml("暂无模板");
-  dom.templateList.innerHTML = state.templates.map((template) => `
-    <article class="list-item ${state.editingTemplateId === template.id ? "selected" : ""}">
-      <h3>${escapeHtml(template.template_name)}</h3>
-      <div class="item-meta">编码: ${escapeHtml(template.template_code)}<br>状态: ${template.enabled ? "启用" : "停用"}<br>内容: ${escapeHtml(template.template_content)}</div>
-      <div class="item-actions"><button class="small-button" data-action="edit-template" data-id="${template.id}" type="button">编辑</button></div>
-    </article>
-  `).join("");
-}
-
-function renderTasks() {
-  const task = currentTask();
-  dom.taskCurrent.textContent = task ? `当前任务: ${task.task_name}` : "当前未选中自定义任务";
-  if (!state.tasks.length) return dom.taskList.innerHTML = emptyHtml("暂无自定义任务");
-  dom.taskList.innerHTML = state.tasks.map((taskItem) => {
-    const schedule = (taskItem.schedules || [])[0];
-    return `
-      <article class="list-item ${taskItem.id === state.selectedTaskId ? "selected" : ""}">
-        <div class="panel-head"><h3>${escapeHtml(taskItem.task_name)}</h3><span class="status ${taskItem.enabled ? "" : "failed"}">${taskItem.enabled ? "启用" : "停用"}</span></div>
-        <div class="item-meta">script_id=${taskItem.script_id} / version_id=${taskItem.script_version_id}<br>模板: ${taskItem.message_template_id || "未绑定"}<br>频率: ${schedule ? `${schedule.interval_value} ${schedule.interval_unit}` : "未配置"}<br>规则数: ${(taskItem.rules || []).length}</div>
-        <div class="item-actions">
-          <button class="small-button" data-action="select-task" data-id="${taskItem.id}" type="button">选中</button>
-          <button class="small-button" data-action="edit-task" data-id="${taskItem.id}" type="button">编辑</button>
-          <button class="small-button" data-action="${taskItem.enabled ? "disable-task" : "enable-task"}" data-id="${taskItem.id}" type="button">${taskItem.enabled ? "停用" : "启用"}</button>
-        </div>
-      </article>
-    `;
-  }).join("");
-}
-
-function renderRules() {
-  const task = currentTask();
-  if (!task) return dom.ruleList.innerHTML = emptyHtml("请先选中自定义任务");
-  if (!(task.rules || []).length) return dom.ruleList.innerHTML = emptyHtml("当前任务暂无接收规则");
-  dom.ruleList.innerHTML = (task.rules || []).map((rule) => renderRuleCard(rule, state.editingRuleId)).join("");
-}
-
-function renderRuns() {
-  if (!state.runs.length) return dom.runList.innerHTML = emptyHtml("暂无任务运行记录");
-  dom.runList.innerHTML = state.runs.map((run) => `
-    <article class="list-item">
-      <div class="panel-head"><h4>${escapeHtml(run.run_no)}</h4><span class="status ${String(run.status).includes("fail") ? "failed" : ""}">${escapeHtml(run.status)}</span></div>
-      <div class="item-meta">任务: ${run.task_id} / 结果: ${run.result_count} / 命中: ${run.hit_count} / 发送: ${run.send_count}<br>开始: ${escapeHtml(formatTime(run.started_at))}<br>结束: ${escapeHtml(formatTime(run.finished_at))}</div>
-      <div class="item-actions"><button class="small-button" data-action="view-run" data-id="${run.id}" type="button">查看详情</button></div>
-    </article>
-  `).join("");
-}
-
-function renderContacts(items = state.contacts) {
-  if (!items.length) return dom.contactList.innerHTML = emptyHtml("暂无联系人结果");
-  dom.contactList.innerHTML = items.map((contact) => `
-    <article class="list-item">
-      <h4>${escapeHtml(contact.xm || contact.sspcs || contact.xq || "未命名联系人")}</h4>
-      <div class="item-meta">sspcsdm: ${escapeHtml(contact.sspcsdm || "-")} / xqdm: ${escapeHtml(contact.xqdm || "-")}<br>单位级别: ${escapeHtml(contact.unit_level || "-")} / 手机: ${escapeHtml((contact.phones || []).map((item) => item.mobile).join(","))}</div>
-    </article>
-  `).join("");
-}
-
-function renderRuleCard(rule, editingId) {
-  return `<article class="list-item ${editingId === rule.id ? "selected" : ""}"><h4>${escapeHtml(rule.rule_name)}</h4><div class="item-meta">类型: ${escapeHtml(rule.rule_type)} / 优先级: ${rule.priority}<br>源字段: ${escapeHtml(rule.source_field || "-")} / 目标字段: ${escapeHtml(rule.target_match_field)}<br>上级匹配: self=${rule.include_self} county=${rule.include_county} city=${rule.include_city}<br>固定接收人: ${escapeHtml((rule.fixed_receivers || []).join(","))}</div><div class="item-actions"><button class="small-button" data-action="edit-rule" data-id="${rule.id}" type="button">编辑</button><button class="small-button" data-action="delete-rule" data-id="${rule.id}" type="button">删除</button></div></article>`;
-}
-
-function updateScriptSelects() {
-  dom.scriptSelect.innerHTML = ['<option value="">请选择脚本</option>'].concat(state.scripts.map((script) => `<option value="${script.id}">${escapeHtml(script.script_name)} (${escapeHtml(script.script_code)})</option>`)).join("");
-  if (!dom.scriptSelect.value && state.scripts.length) dom.scriptSelect.value = String(state.scripts[0].id);
-  updateVersionSelect();
-}
-
-function updateVersionSelect() {
-  const scriptId = Number(dom.scriptSelect.value || 0);
-  const script = state.scripts.find((item) => item.id === scriptId);
-  const versions = script ? script.versions || [] : [];
-  dom.scriptVersionSelect.innerHTML = ['<option value="">请选择版本</option>'].concat(versions.map((version) => `<option value="${version.id}">${escapeHtml(version.version_no)}</option>`)).join("");
-  if (versions.length) dom.scriptVersionSelect.value = String(versions[0].id);
-}
-
-function updateTemplateSelect() {
-  dom.templateSelect.innerHTML = ['<option value="">不使用模板</option>'].concat(state.templates.map((template) => `<option value="${template.id}">${escapeHtml(template.template_name)}</option>`)).join("");
-}
-
-async function submitScript(event) {
-  event.preventDefault();
-  try {
-    const result = await api("/api/scripts/upload", { method: "POST", body: new FormData(dom.scriptForm) });
-    dom.scriptForm.reset();
-    flash(`脚本上传成功: script_id=${result.script_id}, version_id=${result.script_version_id}`);
-    await loadScripts();
-  } catch (error) { flash(error.message, true); }
-}
-
-async function submitTemplate(event) {
-  event.preventDefault();
-  try {
-    const form = new FormData(dom.templateForm);
-    const payload = { template_name: form.get("template_name"), template_code: form.get("template_code"), template_content: form.get("template_content"), render_example: form.get("render_example") || "", enabled: form.get("enabled") === "on" };
-    if (state.editingTemplateId) await api(`/api/message-templates/${state.editingTemplateId}`, jsonRequest("PUT", payload));
-    else await api("/api/message-templates", jsonRequest("POST", payload));
-    flash(state.editingTemplateId ? "模板更新成功" : "模板创建成功");
-    resetTemplateForm();
-    await loadTemplates();
-  } catch (error) { flash(error.message, true); }
-}
-
-async function submitTask(event) {
-  event.preventDefault();
-  try {
-    const form = new FormData(dom.taskForm);
-    const payload = { task_name: form.get("task_name"), script_id: Number(form.get("script_id")), script_version_id: Number(form.get("script_version_id")), message_template_id: form.get("message_template_id") ? Number(form.get("message_template_id")) : null, enabled: form.get("enabled") === "on", dedup_key_expr: String(form.get("dedup_key_expr") || "").trim(), dedup_window_minutes: Number(form.get("dedup_window_minutes") || 0), runtime_config: parseJson(form.get("runtime_config"), {}) };
-    const schedule = { interval_value: Number(form.get("schedule_interval_value") || 0), interval_unit: form.get("schedule_interval_unit"), enabled: true };
-    let taskId = state.editingTaskId;
-    if (taskId) {
-      await api(`/api/tasks/${taskId}`, jsonRequest("PUT", payload));
-      await api(`/api/tasks/${taskId}/schedule`, jsonRequest("PUT", schedule));
-    } else {
-      const created = await api("/api/tasks", jsonRequest("POST", { ...payload, schedule }));
-      taskId = created.id;
-      state.selectedTaskId = taskId;
-    }
-    flash(`任务 ${taskId} 保存成功`);
-    resetTaskForm();
-    await loadTasks();
-    await loadRuns();
-    renderSummary();
-  } catch (error) { flash(error.message, true); }
-}
-
-async function submitRule(event) {
-  event.preventDefault();
-  if (!state.selectedTaskId) return flash("请先选中自定义任务", true);
-  try {
-    const payload = buildRulePayload(dom.ruleForm);
-    if (state.editingRuleId) await api(`/api/rules/${state.editingRuleId}`, jsonRequest("PUT", payload));
-    else await api(`/api/tasks/${state.selectedTaskId}/rules`, jsonRequest("POST", payload));
-    flash("任务接收规则保存成功");
-    resetRuleForm();
-    await loadTasks();
-  } catch (error) { flash(error.message, true); }
-}
-
-async function submitContacts(event) {
-  event.preventDefault();
-  try {
-    const form = new FormData(dom.contactForm);
-    const params = new URLSearchParams();
-    ["keyword", "sspcsdm", "xqdm"].forEach((key) => { const value = String(form.get(key) || "").trim(); if (value) params.set(key, value); });
-    const result = await api(params.toString() ? `/api/contacts?${params.toString()}` : "/api/contacts");
-    state.contacts = result.items || [];
-    renderContacts();
-    flash(`联系人查询完成，共 ${result.total} 条`);
-  } catch (error) { flash(error.message, true); }
-}
-
-async function runTask(dryRun) {
-  if (!state.selectedTaskId) return flash("请先选中自定义任务", true);
-  try {
-    const run = await api(`/api/tasks/${state.selectedTaskId}/run`, jsonRequest("POST", { dry_run: dryRun, context_override: {} }));
-    flash(`${dryRun ? "任务演练" : "任务执行"}已触发，run_id=${run.id}`);
-    await loadRuns();
-    renderSummary();
-  } catch (error) { flash(error.message, true); }
-}
-
-async function handleTemplateListClick(event) {
-  const button = event.target.closest("button[data-action='edit-template']");
-  if (!button) return;
-  const template = state.templates.find((item) => item.id === Number(button.dataset.id));
-  if (!template) return;
-  state.editingTemplateId = template.id;
-  fillForm(dom.templateForm, { template_name: template.template_name, template_code: template.template_code, template_content: template.template_content, render_example: template.render_example });
-  dom.templateForm.elements.enabled.checked = template.enabled;
-  renderTemplates();
-}
-
-async function handleTaskListClick(event) {
-  const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  const taskId = Number(button.dataset.id);
-  if (button.dataset.action === "select-task") {
-    state.selectedTaskId = taskId;
-    await loadTasks();
-    await loadRuns();
-    return renderSummary();
-  }
-  if (button.dataset.action === "edit-task") {
-    const task = state.tasks.find((item) => item.id === taskId);
-    if (!task) return;
-    state.selectedTaskId = task.id;
-    state.editingTaskId = task.id;
-    fillTaskForm(task);
-    return;
-  }
-  const action = button.dataset.action === "enable-task" ? "enable" : "disable";
-  await api(`/api/tasks/${taskId}/${action}`, jsonRequest("POST", {}));
-  flash(`任务 ${taskId} 已${action === "enable" ? "启用" : "停用"}`);
-  await loadTasks();
-  await loadRuns();
-  renderSummary();
-}
-
-async function handleRuleListClick(event) {
-  const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  const task = currentTask();
-  if (!task) return;
-  const rule = (task.rules || []).find((item) => item.id === Number(button.dataset.id));
-  if (!rule) return;
-  if (button.dataset.action === "edit-rule") {
-    state.editingRuleId = rule.id;
-    fillRuleForm(dom.ruleForm, rule);
-    return renderRules();
-  }
-  await api(`/api/rules/${rule.id}`, { method: "DELETE" });
-  flash(`任务规则 ${rule.id} 已删除`);
-  await loadTasks();
-  resetRuleForm();
-}
-
-async function handleRunListClick(event) {
-  const button = event.target.closest("button[data-action='view-run']");
-  if (!button) return;
-  try { flash(JSON.stringify(await api(`/api/task-runs/${button.dataset.id}`), null, 2)); }
-  catch (error) { flash(error.message, true); }
-}
-
-function fillTaskForm(task) {
-  fillForm(dom.taskForm, { task_name: task.task_name, dedup_key_expr: task.dedup_key_expr, dedup_window_minutes: task.dedup_window_minutes, runtime_config: JSON.stringify(task.runtime_config || {}, null, 2) });
-  dom.taskForm.elements.enabled.checked = task.enabled;
-  dom.scriptSelect.value = String(task.script_id);
-  updateVersionSelect();
-  dom.scriptVersionSelect.value = String(task.script_version_id);
-  dom.templateSelect.value = task.message_template_id ? String(task.message_template_id) : "";
-  const schedule = (task.schedules || [])[0];
-  if (schedule) fillForm(dom.taskForm, { schedule_interval_value: schedule.interval_value, schedule_interval_unit: schedule.interval_unit });
-}
-
-function fillRuleForm(form, rule) {
-  fillForm(form, { rule_name: rule.rule_name, rule_type: rule.rule_type, source_field: rule.source_field, priority: rule.priority, target_mobile_field: rule.target_mobile_field, fixed_receivers: (rule.fixed_receivers || []).join("\n"), filter_json: JSON.stringify(rule.filter_json || {}, null, 2) });
-  form.elements.target_match_field.value = rule.target_match_field;
-  form.elements.enabled.checked = rule.enabled;
-  form.elements.include_self.checked = rule.include_self;
-  form.elements.include_county.checked = rule.include_county;
-  form.elements.include_city.checked = rule.include_city;
-}
-
-function buildRulePayload(form) {
-  const data = new FormData(form);
-  return { rule_name: data.get("rule_name"), rule_type: data.get("rule_type"), priority: Number(data.get("priority") || 100), enabled: data.get("enabled") === "on", source_field: data.get("source_field") || "", target_table: "jcgkzx_autotask.org_contact", target_match_field: data.get("target_match_field"), target_mobile_field: data.get("target_mobile_field") || "mobile", include_self: data.get("include_self") === "on", include_county: data.get("include_county") === "on", include_city: data.get("include_city") === "on", filter_json: parseJson(data.get("filter_json"), {}), fixed_receivers: splitLines(data.get("fixed_receivers")) };
-}
-
-function fillForm(form, values) { Object.entries(values).forEach(([key, value]) => { if (form.elements[key]) form.elements[key].value = value ?? ""; }); }
-function resetTemplateForm() { state.editingTemplateId = null; dom.templateForm.reset(); dom.templateForm.elements.enabled.checked = true; renderTemplates(); }
-function resetTaskForm() { state.editingTaskId = null; dom.taskForm.reset(); fillForm(dom.taskForm, { dedup_window_minutes: 720, schedule_interval_value: 20, schedule_interval_unit: "minute", runtime_config: "{}" }); dom.taskForm.elements.enabled.checked = true; updateScriptSelects(); updateTemplateSelect(); renderTasks(); }
-function resetRuleForm() { state.editingRuleId = null; dom.ruleForm.reset(); fillForm(dom.ruleForm, { priority: 100, target_mobile_field: "mobile", filter_json: "{}" }); dom.ruleForm.elements.enabled.checked = true; dom.ruleForm.elements.include_self.checked = true; renderRules(); }
-function flash(message, isError = false) { dom.flash.textContent = message; dom.flash.style.borderColor = isError ? "rgba(167, 60, 44, 0.32)" : "rgba(13, 107, 87, 0.12)"; dom.flash.style.background = isError ? "#f7ebe8" : "#ecf4f1"; }
-function emptyHtml(text) { return `<article class="list-item"><div class="item-meta">${escapeHtml(text)}</div></article>`; }
-function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
-function parseJson(value, fallback) { try { const text = String(value || "").trim(); return JSON.parse(text || JSON.stringify(fallback)); } catch (error) { throw new Error(`JSON 解析失败: ${error.message}`); } }
-function splitLines(value) { return String(value || "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean); }
-function formatTime(value) { return value ? String(value).replace("T", " ").slice(0, 19) : "-"; }
-function jsonRequest(method, payload) { return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }; }
-async function api(path, options = {}) { const response = await fetch(path, options); if (response.status === 204) return null; const text = await response.text(); let data = null; if (text) { try { data = JSON.parse(text); } catch (error) { if (!response.ok) throw new Error(text); data = text; } } if (!response.ok) throw new Error(data && data.detail ? data.detail : `请求失败: ${response.status}`); return data; }
-
-window.api = api;
-window.escapeHtml = escapeHtml;
-window.emptyHtml = emptyHtml;
-window.flash = flash;
-window.formatTime = formatTime;
-window.jsonRequest = jsonRequest;
-window.parseJson = parseJson;
-window.splitLines = splitLines;
-window.fillForm = fillForm;
-window.renderRuleCard = renderRuleCard;
-window.buildRulePayload = buildRulePayload;
-window.fillRuleForm = fillRuleForm;
-window.renderSummary = renderSummary;

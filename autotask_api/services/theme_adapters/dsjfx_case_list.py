@@ -300,7 +300,10 @@ class DsjfxCaseListThemeAdapter(ThemeSourceAdapter):
         case_contents = _safe_str(raw.get("caseContents") or raw.get("case_contents"))
         replies = _safe_str(raw.get("replies"))
         occur_address = _safe_str(raw.get("occurAddress"))
+        alarm_time = _safe_str(raw.get("alarmTime"))
         call_time = _safe_str(raw.get("callTime") or raw.get("occurTime"))
+        if not alarm_time:
+            alarm_time = call_time
         duty_dept_name = _safe_str(raw.get("dutyDeptName"))
 
         normalized = dict(raw)
@@ -321,6 +324,9 @@ class DsjfxCaseListThemeAdapter(ThemeSourceAdapter):
                 "raw_fields": raw,
                 "message_vars": {
                     "case_no": case_no or event_key,
+                    "alarmTime": alarm_time,
+                    "alarm_time": alarm_time,
+                    "callTime": call_time,
                     "call_time": call_time,
                     "duty_dept_name": duty_dept_name,
                     "occur_address": occur_address,

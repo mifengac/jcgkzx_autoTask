@@ -1,0 +1,270 @@
+import { api, jsonRequest, parseJson } from "../core/api.js";
+import { emptyState, escapeHtml, formatTime, jsonBlock, metricCard, optionList, panel, statusBadge, table } from "../core/ui.js";
+
+function currentSource(app) {
+  return app.getCurrentSource();
+}
+
+function renderSourceCards(app) {
+  if (!app.state.themeSources.length) {
+    return emptyState("暂无数据源，请先创建一条数据源配置。");
+  }
+
+  return `
+    <div class="card-list">
+      ${app.state.themeSources.map((item) => `
+        <article class="card-item ${app.state.selectedSourceId === item.id ? "active" : ""}">
+          <div class="card-head">
+            <div>
+              <h4>${escapeHtml(item.source_name)}</h4>
+              <div class="card-meta">编码: <span class="mono">${escapeHtml(item.source_code)}</span></div>
+            </div>
+            ${statusBadge(item.enabled ? "启用" : "停用")}
+          </div>
+          <div class="card-meta">
+            类型: ${escapeHtml(item.source_type)}<br>
+            调度: ${item.schedule.interval_value} ${escapeHtml(item.schedule.interval_unit)}<br>
+            主题数: ${item.topic_count}
+          </div>
+          <div class="card-actions">
+            <button class="small-button" type="button" data-action="source-select" data-id="${item.id}">选中</button>
+            <button class="small-button" type="button" data-action="source-edit" data-id="${item.id}">编辑</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSourceForm(app) {
+  const source = currentSource(app);
+  const editing = app.state.editingSourceId ? currentSource(app) : null;
+  const value = editing || source;
+  return `
+    <div class="banner">${source ? `当前数据源: ${escapeHtml(source.source_name)} / ${escapeHtml(source.source_code)}` : "当前未选中数据源"}</div>
+    <form id="source-form" class="form-stack">
+      <div class="form-grid two">
+        <div class="field-block">
+          <label for="source_name">数据源名称</label>
+          <input id="source_name" name="source_name" type="text" value="${escapeHtml(value?.source_name || "")}" required>
+        </div>
+        <div class="field-block">
+          <label for="source_code">数据源编码</label>
+          <input id="source_code" name="source_code" type="text" value="${escapeHtml(value?.source_code || "")}" required>
+        </div>
+      </div>
+      <div class="form-grid three">
+        <div class="field-block">
+          <label for="source_type">数据源类型</label>
+          <select id="source_type" name="source_type">
+            <option value="dsjfx_case_list" selected>dsjfx_case_list</option>
+          </select>
+        </div>
+        <div class="field-block">
+          <label for="schedule_interval_value">调度值</label>
+          <input id="schedule_interval_value" name="schedule_interval_value" type="number" min="1" value="${value?.schedule?.interval_value || 20}">
+        </div>
+        <div class="field-block">
+          <label for="schedule_interval_unit">调度单位</label>
+          <select id="schedule_interval_unit" name="schedule_interval_unit">
+            <option value="minute" ${(value?.schedule?.interval_unit || "minute") === "minute" ? "selected" : ""}>分钟</option>
+            <option value="hour" ${(value?.schedule?.interval_unit || "") === "hour" ? "selected" : ""}>小时</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-block">
+        <label for="schedule_timezone">时区</label>
+        <input id="schedule_timezone" name="schedule_timezone" type="text" value="${escapeHtml(value?.schedule?.timezone || "Asia/Shanghai")}">
+      </div>
+      <div class="field-block">
+        <label for="source_config">数据源配置 JSON</label>
+        <textarea id="source_config" name="source_config" rows="12">${escapeHtml(JSON.stringify(value?.source_config || {}, null, 2))}</textarea>
+      </div>
+      <div class="checkbox-row">
+        <label class="checkbox"><input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}><span>启用数据源</span></label>
+      </div>
+      <div class="inline-actions">
+        <button class="button" type="submit">${app.state.editingSourceId ? "更新数据源" : "创建数据源"}</button>
+        <button class="button button-secondary" type="button" data-action="source-reset">新建数据源</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderSourceRunPanel(app) {
+  const source = currentSource(app);
+  const runs = app.state.themeRunPage.items || [];
+  return `
+    <div class="banner">${source ? `当前数据源: ${escapeHtml(source.source_name)}` : "请先在列表概览中选中一条数据源。"}</div>
+    <div class="inline-actions" style="margin-top:12px;">
+      <button class="button button-ghost" type="button" data-action="source-run-dry" ${source ? "" : "disabled"}>演练</button>
+      <button class="button button-danger" type="button" data-action="source-run-live" ${source ? "" : "disabled"}>立即执行</button>
+      <button class="button button-secondary" type="button" data-action="source-refresh-runs" ${source ? "" : "disabled"}>刷新运行记录</button>
+    </div>
+    <div style="margin-top:16px;">
+      ${source ? jsonBlock(source.source_config) : emptyState("选中数据源后可以在这里查看当前抓取配置。")}
+    </div>
+    <div style="margin-top:16px;">
+      ${runs.length ? table(
+        ["运行号", "状态", "抓取", "命中", "发送", "时间", "操作"],
+        runs.map((run) => [
+          `<span class="mono">${escapeHtml(run.run_no)}</span>`,
+          statusBadge(run.status),
+          String(run.fetched_count),
+          String(run.matched_count),
+          String(run.send_count),
+          formatTime(run.finished_at || run.started_at),
+          `<button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">查看详情</button>`,
+        ])
+      ) : emptyState("当前数据源暂无运行记录。")}
+    </div>
+  `;
+}
+
+export const sourcesSection = {
+  key: "sources",
+  label: "数据源管理",
+  description: "集中管理抓取源、调度、参数和手动测试，不再和主题或规则混在一起。",
+  tabs: [
+    { key: "list", label: "列表概览", hint: "查看与切换数据源" },
+    { key: "editor", label: "配置编辑", hint: "编辑抓取参数" },
+    { key: "run", label: "运行测试", hint: "演练与立即执行" },
+  ],
+  async load(app) {
+    await app.reloadThemeSources();
+    if (app.state.route.secondary === "run" && app.state.selectedSourceId) {
+      await app.refreshThemeRuns({ source_id: app.state.selectedSourceId, limit: 10, offset: 0 });
+    }
+  },
+  render(app) {
+    const enabledCount = app.state.themeSources.filter((item) => item.enabled).length;
+    const tab = app.state.route.secondary;
+    const summary = `
+      <div class="stat-grid">
+        ${metricCard("数据源总数", app.state.themeSources.length)}
+        ${metricCard("已启用", enabledCount)}
+        ${metricCard("主题总数", app.state.themeSources.reduce((sum, item) => sum + item.topic_count, 0))}
+        ${metricCard("当前选中", currentSource(app)?.source_name || "-")}
+      </div>
+    `;
+
+    if (tab === "editor") {
+      return `<div class="content-grid">
+        ${panel("数据源概况", "先选中，再进入配置编辑。", summary, { span: 4 })}
+        ${panel("数据源配置", "这里保留调度、时区和 source_config 配置。", renderSourceForm(app), { span: 8 })}
+      </div>`;
+    }
+
+    if (tab === "run") {
+      return `<div class="content-grid">
+        ${panel("数据源概况", "运行测试依赖当前选中的数据源。", summary, { span: 4 })}
+        ${panel("运行测试", "演练和立即执行只作用于当前数据源。", renderSourceRunPanel(app), { span: 8 })}
+      </div>`;
+    }
+
+    return `<div class="content-grid">
+      ${panel("数据源概况", "用更清晰的方式查看当前有哪些抓取源在运行。", summary, { span: 4 })}
+      ${panel("数据源列表", "这里只负责切换和概览，不再和主题、规则共用一个页面。", renderSourceCards(app), { span: 8 })}
+    </div>`;
+  },
+  bind(app) {
+    document.querySelectorAll("[data-action='source-select']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await app.setSelectedSource(Number(button.dataset.id));
+        app.render();
+      });
+    });
+
+    document.querySelectorAll("[data-action='source-edit']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await app.setSelectedSource(Number(button.dataset.id));
+        app.state.editingSourceId = Number(button.dataset.id);
+        app.navigate("sources", "editor");
+      });
+    });
+
+    document.querySelectorAll("[data-action='source-reset']").forEach((button) => {
+      button.addEventListener("click", () => {
+        app.state.editingSourceId = null;
+        app.render();
+      });
+    });
+
+    const form = document.querySelector("#source-form");
+    if (form) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const payload = new FormData(form);
+          const body = {
+            source_name: payload.get("source_name"),
+            source_code: payload.get("source_code"),
+            source_type: payload.get("source_type"),
+            enabled: payload.get("enabled") === "on",
+            source_config: parseJson(payload.get("source_config"), {}),
+            schedule: {
+              interval_value: Number(payload.get("schedule_interval_value") || 20),
+              interval_unit: payload.get("schedule_interval_unit") || "minute",
+              timezone: payload.get("schedule_timezone") || "Asia/Shanghai",
+              start_at: null,
+              end_at: null,
+            },
+          };
+          if (app.state.editingSourceId) {
+            await api(`/api/theme-sources/${app.state.editingSourceId}`, jsonRequest("PUT", body));
+            app.flash("数据源已更新。");
+          } else {
+            const created = await api("/api/theme-sources", jsonRequest("POST", body));
+            app.state.selectedSourceId = created.id;
+            app.flash("数据源已创建。");
+          }
+          app.state.editingSourceId = null;
+          await app.reloadThemeSources();
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
+      });
+    }
+
+    document.querySelectorAll("[data-action='source-run-dry']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const run = await api(`/api/theme-sources/${app.state.selectedSourceId}/run`, jsonRequest("POST", { dry_run: true, context_override: {} }));
+          app.flash(`数据源演练已触发，run_id=${run.id}`);
+          await app.refreshThemeRuns({ source_id: app.state.selectedSourceId, limit: 10, offset: 0 });
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-action='source-run-live']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const run = await api(`/api/theme-sources/${app.state.selectedSourceId}/run`, jsonRequest("POST", { dry_run: false, context_override: {} }));
+          app.flash(`数据源立即执行已触发，run_id=${run.id}`);
+          await app.refreshThemeRuns({ source_id: app.state.selectedSourceId, limit: 10, offset: 0 });
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-action='source-refresh-runs']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await app.refreshThemeRuns({ source_id: app.state.selectedSourceId, limit: 10, offset: 0 });
+        app.flash("数据源运行记录已刷新。");
+        app.render();
+      });
+    });
+
+    document.querySelectorAll("[data-action='open-detail']").forEach((button) => {
+      button.addEventListener("click", () => {
+        app.openDrawer(button.dataset.type, Number(button.dataset.id));
+      });
+    });
+  },
+};

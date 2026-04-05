@@ -28,11 +28,15 @@ from autotask_api.schemas import (
     TaskRead,
     TaskScheduleRead,
     ThemeReceiverRuleRead,
+    ThemeSmsSendLogDetailRead,
+    ThemeSmsSendLogSummaryRead,
     ThemeSmsSendLogRead,
     ThemeSourceDetailRead,
     ThemeSourceRead,
     ThemeSourceRunRead,
     ThemeSourceSchedule,
+    ThemeTopicResultDetailRead,
+    ThemeTopicResultSummaryRead,
     ThemeTopicRead,
     ThemeTopicResultRead,
 )
@@ -246,6 +250,36 @@ def serialize_theme_topic_result(item: ThemeTopicResult) -> ThemeTopicResultRead
     )
 
 
+def serialize_theme_topic_result_summary(item: ThemeTopicResult) -> ThemeTopicResultSummaryRead:
+    topic = item.topic
+    source = item.source_run.source
+    return ThemeTopicResultSummaryRead(
+        id=item.id,
+        source_run_id=item.source_run_id,
+        source_id=source.id,
+        source_name=source.source_name,
+        topic_id=topic.id,
+        topic_name=topic.theme_name,
+        topic_code=topic.theme_code,
+        event_key=item.event_key,
+        case_no=normalize_non_null_text_output(item.case_no),
+        receiver_mobiles=parse_json_text(item.receiver_mobiles_json, []),
+        oracle_eid=normalize_non_null_text_output(item.oracle_eid),
+        send_status=item.send_status,
+        created_at=item.created_at,
+    )
+
+
+def serialize_theme_topic_result_detail(item: ThemeTopicResult) -> ThemeTopicResultDetailRead:
+    return ThemeTopicResultDetailRead(
+        **serialize_theme_topic_result_summary(item).model_dump(),
+        raw_result=parse_json_text(item.raw_result_json, {}),
+        rendered_message=normalize_non_null_text_output(item.rendered_message),
+        matched_rule_ids=parse_json_text(item.matched_rule_ids_json, []),
+        dedup_key=normalize_non_null_text_output(item.dedup_key),
+    )
+
+
 def serialize_theme_sms_log(item: ThemeSmsSendLog) -> ThemeSmsSendLogRead:
     return ThemeSmsSendLogRead(
         id=item.id,
@@ -259,6 +293,42 @@ def serialize_theme_sms_log(item: ThemeSmsSendLog) -> ThemeSmsSendLogRead:
         status=item.status,
         error_message=normalize_non_null_text_output(item.error_message),
         created_at=item.created_at,
+    )
+
+
+def serialize_theme_sms_log_summary(item: ThemeSmsSendLog) -> ThemeSmsSendLogSummaryRead:
+    topic = item.topic
+    source = item.source_run.source
+    content = item.content or ""
+    preview = content if len(content) <= 72 else f"{content[:72]}..."
+    return ThemeSmsSendLogSummaryRead(
+        id=item.id,
+        source_run_id=item.source_run_id,
+        topic_result_id=item.topic_result_id,
+        source_id=source.id,
+        source_name=source.source_name,
+        topic_id=topic.id,
+        topic_name=topic.theme_name,
+        topic_code=topic.theme_code,
+        mobile=item.mobile,
+        content_preview=preview,
+        provider=item.provider,
+        provider_msg_id=normalize_non_null_text_output(item.provider_msg_id),
+        status=item.status,
+        error_message=normalize_non_null_text_output(item.error_message),
+        created_at=item.created_at,
+    )
+
+
+def serialize_theme_sms_log_detail(item: ThemeSmsSendLog) -> ThemeSmsSendLogDetailRead:
+    topic_result = item.topic_result
+    return ThemeSmsSendLogDetailRead(
+        **serialize_theme_sms_log_summary(item).model_dump(),
+        content=item.content,
+        oracle_eid=normalize_non_null_text_output(topic_result.oracle_eid if topic_result else ""),
+        result_send_status=topic_result.send_status if topic_result else "",
+        receiver_mobiles=parse_json_text(topic_result.receiver_mobiles_json, []) if topic_result else [],
+        raw_result=parse_json_text(topic_result.raw_result_json, {}) if topic_result else {},
     )
 
 

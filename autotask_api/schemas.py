@@ -447,6 +447,36 @@ class ThemeTopicResultRead(BaseModel):
     created_at: datetime
 
 
+class ThemeTopicResultSummaryRead(BaseModel):
+    id: int
+    source_run_id: int
+    source_id: int
+    source_name: str
+    topic_id: int
+    topic_name: str
+    topic_code: str
+    event_key: str
+    case_no: str
+    receiver_mobiles: list[str]
+    oracle_eid: str
+    send_status: str
+    created_at: datetime
+
+
+class ThemeTopicResultDetailRead(ThemeTopicResultSummaryRead):
+    raw_result: dict[str, Any]
+    rendered_message: str
+    matched_rule_ids: list[int]
+    dedup_key: str
+
+
+class ThemeTopicResultPageRead(BaseModel):
+    items: list[ThemeTopicResultSummaryRead] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
+
+
 class ThemeSmsSendLogRead(BaseModel):
     id: int
     source_run_id: int
@@ -459,6 +489,39 @@ class ThemeSmsSendLogRead(BaseModel):
     status: str
     error_message: str
     created_at: datetime
+
+
+class ThemeSmsSendLogSummaryRead(BaseModel):
+    id: int
+    source_run_id: int
+    topic_result_id: int | None
+    source_id: int
+    source_name: str
+    topic_id: int
+    topic_name: str
+    topic_code: str
+    mobile: str
+    content_preview: str
+    provider: str
+    provider_msg_id: str
+    status: str
+    error_message: str
+    created_at: datetime
+
+
+class ThemeSmsSendLogDetailRead(ThemeSmsSendLogSummaryRead):
+    content: str
+    oracle_eid: str
+    result_send_status: str
+    receiver_mobiles: list[str]
+    raw_result: dict[str, Any]
+
+
+class ThemeSmsSendLogPageRead(BaseModel):
+    items: list[ThemeSmsSendLogSummaryRead] = Field(default_factory=list)
+    total: int
+    limit: int
+    offset: int
 
 
 class ThemeSourceRunRead(BaseModel):
