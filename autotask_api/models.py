@@ -82,6 +82,7 @@ class MessageTemplate(TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     tasks: Mapped[list["AlertTask"]] = relationship(back_populates="message_template")
+    theme_topics: Mapped[list["ThemeTopic"]] = relationship(back_populates="message_template")
 
 
 class AlertTask(TimestampMixin, Base):
@@ -246,6 +247,204 @@ class SmsSendLog(Base):
     task_result: Mapped["TaskRunResult | None"] = relationship(back_populates="sms_logs")
 
 
+class ThemeSource(TimestampMixin, Base):
+    __tablename__ = "theme_source"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('dsjfx_case_list')",
+            name="ck_theme_source_type",
+        ),
+        CheckConstraint("interval_value > 0", name="ck_theme_source_interval_value"),
+        CheckConstraint(
+            "interval_unit IN ('minute', 'hour')",
+            name="ck_theme_source_interval_unit",
+        ),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_name: Mapped[str] = mapped_column(Text, nullable=False)
+    source_code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False, default="dsjfx_case_list")
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    interval_value: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    interval_unit: Mapped[str] = mapped_column(Text, nullable=False, default="minute")
+    timezone: Mapped[str] = mapped_column(Text, nullable=False, default="Asia/Shanghai")
+    start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_config_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+
+    topics: Mapped[list["ThemeTopic"]] = relationship(
+        back_populates="source",
+        cascade="all, delete-orphan",
+        order_by="ThemeTopic.priority.asc()",
+    )
+    runs: Mapped[list["ThemeSourceRun"]] = relationship(back_populates="source")
+
+
+class ThemeTopic(TimestampMixin, Base):
+    __tablename__ = "theme_topic"
+    __table_args__ = (
+        CheckConstraint(
+            "dedup_mode IN ('permanent', 'window')",
+            name="ck_theme_topic_dedup_mode",
+        ),
+        CheckConstraint(
+            "dedup_window_minutes IS NULL OR dedup_window_minutes > 0",
+            name="ck_theme_topic_dedup_window",
+        ),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_source.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    theme_name: Mapped[str] = mapped_column(Text, nullable=False)
+    theme_code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    message_template_id: Mapped[int | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.message_template.id")
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    filter_expr_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    dedup_mode: Mapped[str] = mapped_column(Text, nullable=False, default="permanent")
+    dedup_window_minutes: Mapped[int | None] = mapped_column(Integer)
+    dedup_key_template: Mapped[str] = mapped_column(Text, nullable=False, default="{event_key}")
+
+    source: Mapped["ThemeSource"] = relationship(back_populates="topics")
+    message_template: Mapped["MessageTemplate | None"] = relationship(back_populates="theme_topics")
+    receiver_rules: Mapped[list["ThemeReceiverRule"]] = relationship(
+        back_populates="topic",
+        cascade="all, delete-orphan",
+        order_by="ThemeReceiverRule.priority.asc()",
+    )
+    results: Mapped[list["ThemeTopicResult"]] = relationship(back_populates="topic")
+    sms_logs: Mapped[list["ThemeSmsSendLog"]] = relationship(back_populates="topic")
+
+
+class ThemeReceiverRule(TimestampMixin, Base):
+    __tablename__ = "theme_receiver_rule"
+    __table_args__ = (
+        CheckConstraint(
+            "rule_type IN ('fixed_receivers', 'field_match', 'field_match_with_ancestors')",
+            name="ck_theme_receiver_rule_type",
+        ),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_topic.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rule_name: Mapped[str] = mapped_column(Text, nullable=False)
+    rule_type: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source_field: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    target_table: Mapped[str] = mapped_column(Text, nullable=False, default=f"{SCHEMA}.org_contact")
+    target_match_field: Mapped[str] = mapped_column(Text, nullable=False, default="sspcsdm")
+    target_mobile_field: Mapped[str] = mapped_column(Text, nullable=False, default="mobile")
+    include_self: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    include_county: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    include_city: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    filter_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    fixed_receivers_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+
+    topic: Mapped["ThemeTopic"] = relationship(back_populates="receiver_rules")
+
+
+class ThemeSourceRun(Base):
+    __tablename__ = "theme_source_run"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_source.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    run_no: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fetched_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    matched_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    send_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    log_path: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    source: Mapped["ThemeSource"] = relationship(back_populates="runs")
+    results: Mapped[list["ThemeTopicResult"]] = relationship(back_populates="source_run")
+    sms_logs: Mapped[list["ThemeSmsSendLog"]] = relationship(back_populates="source_run")
+
+
+class ThemeTopicResult(Base):
+    __tablename__ = "theme_topic_result"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_run_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_source_run.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_topic.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    event_key: Mapped[str] = mapped_column(Text, nullable=False)
+    case_no: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    raw_result_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    rendered_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    matched_rule_ids_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    receiver_mobiles_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    dedup_key: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    oracle_eid: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    send_status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    source_run: Mapped["ThemeSourceRun"] = relationship(back_populates="results")
+    topic: Mapped["ThemeTopic"] = relationship(back_populates="results")
+    sms_logs: Mapped[list["ThemeSmsSendLog"]] = relationship(back_populates="topic_result")
+
+
+class ThemeSmsSendLog(Base):
+    __tablename__ = "theme_sms_send_log"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_run_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_source_run.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    topic_result_id: Mapped[int | None] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_topic_result.id", ondelete="SET NULL")
+    )
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey(f"{SCHEMA}.theme_topic.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    mobile: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False, default="oracle_gateway")
+    provider_msg_id: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    source_run: Mapped["ThemeSourceRun"] = relationship(back_populates="sms_logs")
+    topic_result: Mapped["ThemeTopicResult | None"] = relationship(back_populates="sms_logs")
+    topic: Mapped["ThemeTopic"] = relationship(back_populates="sms_logs")
+
+
 class OrgContact(TimestampMixin, Base):
     __tablename__ = "org_contact"
     __table_args__ = (
@@ -274,7 +473,7 @@ class OrgContact(TimestampMixin, Base):
     rwzt: Mapped[str | None] = mapped_column(Text)
     raw_lxdh: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="active")
-    remark: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    remark: Mapped[str] = mapped_column(Text, nullable=False, default=EMPTY_TEXT_SENTINEL)
 
     phones: Mapped[list["OrgContactPhone"]] = relationship(
         back_populates="contact", cascade="all, delete-orphan", order_by="OrgContactPhone.id.asc()"

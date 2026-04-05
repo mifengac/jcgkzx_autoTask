@@ -1,9 +1,12 @@
 .git
 .gitignore
 .venv
+.claude
 __pycache__
 *.pyc
 *.pyo
 uploads
+dist_scripts
+tests
+*.tar
 .env
-sjtb_1.3.tar

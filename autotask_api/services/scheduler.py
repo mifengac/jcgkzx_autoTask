@@ -9,9 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from autotask_api.database import SessionLocal
-from autotask_api.models import AlertTask
-from autotask_api.schemas import TaskRunRequest
+from autotask_api.models import AlertTask, ThemeSource
+from autotask_api.schemas import TaskRunRequest, ThemeSourceRunRequest
 from autotask_api.services.task_executor import execute_task_run
+from autotask_api.services.theme_executor import execute_theme_source_run
 
 
 LOGGER = logging.getLogger("autotask.scheduler")
@@ -47,12 +48,22 @@ class TaskSchedulerService:
         with SessionLocal() as db:
             for task in self._load_enabled_tasks(db):
                 self._register_task(task)
+            for source in self._load_enabled_theme_sources(db):
+                self._register_theme_source(source)
 
     def _load_enabled_tasks(self, db: Session) -> Iterable[AlertTask]:
         stmt = (
             select(AlertTask)
             .options(selectinload(AlertTask.schedules))
             .where(AlertTask.enabled.is_(True))
+        )
+        return db.scalars(stmt).all()
+
+    def _load_enabled_theme_sources(self, db: Session) -> Iterable[ThemeSource]:
+        stmt = (
+            select(ThemeSource)
+            .options(selectinload(ThemeSource.topics))
+            .where(ThemeSource.enabled.is_(True))
         )
         return db.scalars(stmt).all()
 
@@ -86,6 +97,29 @@ class TaskSchedulerService:
             active_schedule.interval_unit,
         )
 
+    def _register_theme_source(self, source: ThemeSource) -> None:
+        trigger = IntervalTrigger(
+            seconds=source.interval_value * (60 if source.interval_unit == "minute" else 3600),
+            timezone=source.timezone or "Asia/Shanghai",
+            start_date=source.start_at,
+            end_date=source.end_at,
+        )
+        self.scheduler.add_job(
+            self._run_theme_source_job,
+            trigger=trigger,
+            args=[source.id],
+            id=f"theme_source_{source.id}",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+        LOGGER.info(
+            "Registered theme source %s with interval %s %s",
+            source.id,
+            source.interval_value,
+            source.interval_unit,
+        )
+
     @staticmethod
     def _run_task_job(task_id: int) -> None:
         with SessionLocal() as db:
@@ -97,6 +131,18 @@ class TaskSchedulerService:
                 )
             except Exception:
                 LOGGER.exception("Scheduled task %s failed.", task_id)
+
+    @staticmethod
+    def _run_theme_source_job(source_id: int) -> None:
+        with SessionLocal() as db:
+            try:
+                execute_theme_source_run(
+                    db,
+                    source_id=source_id,
+                    payload=ThemeSourceRunRequest(dry_run=False, context_override={}),
+                )
+            except Exception:
+                LOGGER.exception("Scheduled theme source %s failed.", source_id)
 
 
 scheduler_service = TaskSchedulerService()

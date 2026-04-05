@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import threading
 from typing import Any
@@ -121,17 +122,27 @@ class OracleSmsGateway:
             )
         return SmsGatewayCredentials(userid=sms_userid, password=sms_password, userport=userport)
 
-    def check_duplicate(self, *, eid: str, mobile: str) -> bool:
-        sql = """
-            SELECT COUNT(*)
-            FROM yfgadb.dfsdl
-            WHERE eid = :eid
-              AND mobile = :mobile
-        """
+    def check_duplicate(
+        self,
+        *,
+        eid: str,
+        mobile: str,
+        since: datetime | None = None,
+    ) -> bool:
+        sql = [
+            "SELECT COUNT(*)",
+            "FROM yfgadb.dfsdl",
+            "WHERE eid = :eid",
+            "  AND mobile = :mobile",
+        ]
+        params: dict[str, Any] = {"eid": eid, "mobile": mobile}
+        if since is not None:
+            sql.append("  AND deadtime >= :since")
+            params["since"] = since
         conn = self._connect()
         try:
             with conn.cursor() as cur:
-                cur.execute(sql, {"eid": eid, "mobile": mobile})
+                cur.execute("\n".join(sql), params)
                 count = cur.fetchone()[0]
                 return int(count or 0) > 0
         finally:
