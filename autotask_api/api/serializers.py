@@ -45,6 +45,11 @@ from autotask_api.services.task_fields import (
     normalize_dedup_key_expr_output,
     normalize_non_null_text_output,
 )
+from autotask_api.services.time_utils import to_shanghai_aware
+
+
+def serialize_dt(value):
+    return to_shanghai_aware(value)
 
 
 def serialize_script_version(version: ScriptVersion) -> ScriptVersionRead:
@@ -55,7 +60,7 @@ def serialize_script_version(version: ScriptVersion) -> ScriptVersionRead:
         checksum=version.checksum,
         manifest=parse_json_text(version.manifest_json, {}),
         change_log=version.change_log,
-        created_at=version.created_at,
+        created_at=serialize_dt(version.created_at),
     )
 
 
@@ -69,8 +74,8 @@ def serialize_script(script: ScriptDefinition) -> ScriptRead:
         entry_func=script.entry_func,
         manifest=parse_json_text(script.manifest_json, {}),
         status=script.status,
-        created_at=script.created_at,
-        updated_at=script.updated_at,
+        created_at=serialize_dt(script.created_at),
+        updated_at=serialize_dt(script.updated_at),
         versions=[serialize_script_version(version) for version in script.versions],
     )
 
@@ -83,8 +88,8 @@ def serialize_template(template: MessageTemplate) -> MessageTemplateRead:
         template_content=template.template_content,
         render_example=template.render_example,
         enabled=template.enabled,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
+        created_at=serialize_dt(template.created_at),
+        updated_at=serialize_dt(template.updated_at),
     )
 
 
@@ -94,11 +99,11 @@ def serialize_schedule(schedule: TaskSchedule) -> TaskScheduleRead:
         interval_value=schedule.interval_value,
         interval_unit=schedule.interval_unit,
         timezone=schedule.timezone,
-        start_at=schedule.start_at,
-        end_at=schedule.end_at,
+        start_at=serialize_dt(schedule.start_at),
+        end_at=serialize_dt(schedule.end_at),
         enabled=schedule.enabled,
-        created_at=schedule.created_at,
-        updated_at=schedule.updated_at,
+        created_at=serialize_dt(schedule.created_at),
+        updated_at=serialize_dt(schedule.updated_at),
     )
 
 
@@ -119,8 +124,8 @@ def serialize_rule(rule: TaskRule) -> RuleRead:
         include_city=rule.include_city,
         filter_json=parse_json_text(rule.filter_json, {}),
         fixed_receivers=parse_json_text(rule.fixed_receivers_json, []),
-        created_at=rule.created_at,
-        updated_at=rule.updated_at,
+        created_at=serialize_dt(rule.created_at),
+        updated_at=serialize_dt(rule.updated_at),
     )
 
 
@@ -135,8 +140,8 @@ def serialize_task(task: AlertTask) -> TaskRead:
         dedup_key_expr=normalize_dedup_key_expr_output(task.dedup_key_expr),
         dedup_window_minutes=task.dedup_window_minutes,
         runtime_config=parse_json_text(task.runtime_config_json, {}),
-        created_at=task.created_at,
-        updated_at=task.updated_at,
+        created_at=serialize_dt(task.created_at),
+        updated_at=serialize_dt(task.updated_at),
         schedules=[serialize_schedule(schedule) for schedule in task.schedules],
         rules=[serialize_rule(rule) for rule in task.rules],
     )
@@ -147,8 +152,8 @@ def serialize_theme_source_schedule(source: ThemeSource) -> ThemeSourceSchedule:
         interval_value=source.interval_value,
         interval_unit=source.interval_unit,
         timezone=source.timezone,
-        start_at=source.start_at,
-        end_at=source.end_at,
+        start_at=serialize_dt(source.start_at),
+        end_at=serialize_dt(source.end_at),
     )
 
 
@@ -169,8 +174,8 @@ def serialize_theme_receiver_rule(rule: ThemeReceiverRule) -> ThemeReceiverRuleR
         include_city=rule.include_city,
         filter_json=parse_json_text(rule.filter_json, {}),
         fixed_receivers=parse_json_text(rule.fixed_receivers_json, []),
-        created_at=rule.created_at,
-        updated_at=rule.updated_at,
+        created_at=serialize_dt(rule.created_at),
+        updated_at=serialize_dt(rule.updated_at),
     )
 
 
@@ -187,8 +192,8 @@ def serialize_theme_topic(topic: ThemeTopic) -> ThemeTopicRead:
         dedup_mode=topic.dedup_mode,
         dedup_window_minutes=topic.dedup_window_minutes,
         dedup_key_template=topic.dedup_key_template,
-        created_at=topic.created_at,
-        updated_at=topic.updated_at,
+        created_at=serialize_dt(topic.created_at),
+        updated_at=serialize_dt(topic.updated_at),
         receiver_rules=[serialize_theme_receiver_rule(rule) for rule in topic.receiver_rules],
     )
 
@@ -203,8 +208,8 @@ def serialize_theme_source(source: ThemeSource) -> ThemeSourceRead:
         source_config=parse_json_text(source.source_config_json, {}),
         schedule=serialize_theme_source_schedule(source),
         topic_count=len(source.topics),
-        created_at=source.created_at,
-        updated_at=source.updated_at,
+        created_at=serialize_dt(source.created_at),
+        updated_at=serialize_dt(source.updated_at),
     )
 
 
@@ -221,14 +226,14 @@ def serialize_theme_source_run(run: ThemeSourceRun) -> ThemeSourceRunRead:
         source_id=run.source_id,
         run_no=run.run_no,
         status=run.status,
-        started_at=run.started_at,
-        finished_at=run.finished_at,
+        started_at=serialize_dt(run.started_at),
+        finished_at=serialize_dt(run.finished_at),
         fetched_count=run.fetched_count,
         matched_count=run.matched_count,
         send_count=run.send_count,
         error_message=normalize_non_null_text_output(run.error_message),
         log_path=normalize_non_null_text_output(run.log_path),
-        created_at=run.created_at,
+        created_at=serialize_dt(run.created_at),
     )
 
 
@@ -246,7 +251,7 @@ def serialize_theme_topic_result(item: ThemeTopicResult) -> ThemeTopicResultRead
         dedup_key=normalize_non_null_text_output(item.dedup_key),
         oracle_eid=normalize_non_null_text_output(item.oracle_eid),
         send_status=item.send_status,
-        created_at=item.created_at,
+        created_at=serialize_dt(item.created_at),
     )
 
 
@@ -266,7 +271,7 @@ def serialize_theme_topic_result_summary(item: ThemeTopicResult) -> ThemeTopicRe
         receiver_mobiles=parse_json_text(item.receiver_mobiles_json, []),
         oracle_eid=normalize_non_null_text_output(item.oracle_eid),
         send_status=item.send_status,
-        created_at=item.created_at,
+        created_at=serialize_dt(item.created_at),
     )
 
 
@@ -292,7 +297,7 @@ def serialize_theme_sms_log(item: ThemeSmsSendLog) -> ThemeSmsSendLogRead:
         provider_msg_id=normalize_non_null_text_output(item.provider_msg_id),
         status=item.status,
         error_message=normalize_non_null_text_output(item.error_message),
-        created_at=item.created_at,
+        created_at=serialize_dt(item.created_at),
     )
 
 
@@ -316,7 +321,7 @@ def serialize_theme_sms_log_summary(item: ThemeSmsSendLog) -> ThemeSmsSendLogSum
         provider_msg_id=normalize_non_null_text_output(item.provider_msg_id),
         status=item.status,
         error_message=normalize_non_null_text_output(item.error_message),
-        created_at=item.created_at,
+        created_at=serialize_dt(item.created_at),
     )
 
 

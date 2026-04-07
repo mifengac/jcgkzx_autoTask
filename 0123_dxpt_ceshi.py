@@ -10,7 +10,21 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 from uuid import uuid4
-from autotask_api.services.time_utils import now_shanghai_naive, to_shanghai_naive
+from zoneinfo import ZoneInfo
+
+try:
+    from autotask_api.services.time_utils import now_shanghai_naive, to_shanghai_naive
+except ModuleNotFoundError:
+    # The script can run either inside the main app package or as a standalone ZIP upload.
+    SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+
+    def now_shanghai_naive() -> datetime:
+        return datetime.now(SHANGHAI_TZ).replace(tzinfo=None)
+
+    def to_shanghai_naive(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value
+        return value.astimezone(SHANGHAI_TZ).replace(tzinfo=None)
 
 
 KINGBASE_SQL: str = r"""

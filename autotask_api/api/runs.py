@@ -16,6 +16,7 @@ from autotask_api.schemas import (
 from autotask_api.services.rule_engine import parse_json_text
 from autotask_api.services.task_fields import normalize_non_null_text_output
 from autotask_api.services.task_executor import execute_task_run
+from autotask_api.services.time_utils import to_shanghai_aware
 
 
 router = APIRouter(tags=["task-runs"])
@@ -27,14 +28,14 @@ def serialize_task_run(run: TaskRun) -> TaskRunRead:
         task_id=run.task_id,
         run_no=run.run_no,
         status=run.status,
-        started_at=run.started_at,
-        finished_at=run.finished_at,
+        started_at=to_shanghai_aware(run.started_at),
+        finished_at=to_shanghai_aware(run.finished_at),
         result_count=run.result_count,
         hit_count=run.hit_count,
         send_count=run.send_count,
         error_message=normalize_non_null_text_output(run.error_message),
         log_path=normalize_non_null_text_output(run.log_path),
-        created_at=run.created_at,
+        created_at=to_shanghai_aware(run.created_at),
     )
 
 
@@ -48,7 +49,7 @@ def serialize_task_run_result(item: TaskRunResult) -> TaskRunResultRead:
         matched_rule_ids=parse_json_text(item.matched_rule_ids_json, []),
         receiver_mobiles=parse_json_text(item.receiver_mobiles_json, []),
         send_status=item.send_status,
-        created_at=item.created_at,
+        created_at=to_shanghai_aware(item.created_at),
     )
 
 
@@ -63,7 +64,7 @@ def serialize_sms_log(item: SmsSendLog) -> SmsSendLogRead:
         provider_msg_id=normalize_non_null_text_output(item.provider_msg_id),
         status=item.status,
         error_message=normalize_non_null_text_output(item.error_message),
-        created_at=item.created_at,
+        created_at=to_shanghai_aware(item.created_at),
     )
 
 

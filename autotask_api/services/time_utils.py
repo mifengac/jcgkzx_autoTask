@@ -30,3 +30,11 @@ def to_shanghai_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(SHANGHAI_TZ).replace(tzinfo=None)
+
+
+def to_shanghai_aware(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=SHANGHAI_TZ)
+    return value.astimezone(SHANGHAI_TZ)
