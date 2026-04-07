@@ -18,7 +18,15 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from uuid import uuid4
-from autotask_api.services.time_utils import now_shanghai
+from zoneinfo import ZoneInfo
+
+try:
+    from autotask_api.services.time_utils import now_shanghai
+except ModuleNotFoundError:
+    SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+
+    def now_shanghai() -> datetime:
+        return datetime.now(SHANGHAI_TZ)
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
