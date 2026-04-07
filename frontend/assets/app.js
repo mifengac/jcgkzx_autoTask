@@ -36,6 +36,7 @@ const state = {
   selectedSourceId: null,
   selectedTopicId: null,
   selectedTaskId: null,
+  topicEditorCreating: false,
   editingSourceId: null,
   editingTaskId: null,
   editingTemplateId: null,
@@ -261,11 +262,11 @@ const app = {
     if (sourceId === state.selectedSourceId) {
       state.themeSourceDetail = detail;
       const topics = detail.topics || [];
-      if (!state.selectedTopicId && topics[0]) {
+      if (!state.selectedTopicId && topics[0] && !state.topicEditorCreating) {
         state.selectedTopicId = topics[0].id;
       }
       if (state.selectedTopicId && !topics.some((item) => item.id === state.selectedTopicId)) {
-        state.selectedTopicId = topics[0]?.id || null;
+        state.selectedTopicId = state.topicEditorCreating ? null : topics[0]?.id || null;
       }
     }
     return detail;
@@ -286,6 +287,7 @@ const app = {
   },
   async setSelectedTopic(topicId) {
     state.selectedTopicId = topicId || null;
+    state.topicEditorCreating = false;
     if (!state.selectedSourceId) {
       return;
     }

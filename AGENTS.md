@@ -70,6 +70,7 @@ Use Python 3.11 locally when possible. The README and `.env.example` assume that
 - Prefer focused tests using in-memory SQLite.
 - If a test needs the configured schema name, mirror the current approach in `tests/test_theme_run_api.py` and attach an in-memory schema named `jcgkzx_autotask`.
 - Do not require live Kingbase, Oracle, or SMS services for automated tests.
+- After every code change, perform a functional verification of the changed logic. Use the closest realistic validation path available, such as a focused automated test, a syntax check, a dry run, a targeted API call, or a UI interaction check.
 
 ## Change Guidelines
 
@@ -90,6 +91,7 @@ A task is done when all of the following are true:
 - The change is consistent with the current deployment model: Docker on offline Ubuntu 22.04 in the company intranet.
 - No existing startup, scheduling, database, contact-management, receiver-matching, or SMS-sending behavior is broken unintentionally.
 - Tests were updated or added when behavior changed, and the relevant test command was run when feasible.
+- The modified code path was functionally validated after the edit, not only reviewed statically.
 - If tests could not be run because of environment constraints, that limitation is stated explicitly in the final handoff.
 - Documentation or configuration examples were updated when the change altered operator-facing behavior, runtime assumptions, or integration requirements.
 
@@ -109,3 +111,4 @@ Before making non-trivial changes, read these files first:
 - `autotask_api/main.py`
 - the relevant module under `autotask_api/services/`
 - the closest existing test under `tests/`
+- If the code path involves `http://68.253.2.111` or `/dsjfx/` interfaces, read `dsjjqfx.md` first and use the matching endpoint section before writing or changing code.

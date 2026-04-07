@@ -308,15 +308,15 @@ def get_dynamic_date_range() -> Tuple[str, str]:
 
 
 class WcnrJqMonitor:
-    """鏈垚骞翠汉璀︽儏鐩戞帶绫?"""
+    """未成年人警情监控类。"""
 
     def __init__(self, config: Config, logger: logging.Logger):
         self.config = config
         self.logger = logger
         self.session = requests.Session()
-        self.use_thick_mode = False  # 鏍囪鏄惁浣跨敤Thick妯″紡
+        self.use_thick_mode = False  # 标记是否使用 Thick 模式
 
-        # 璁剧疆璇锋眰澶?
+        # 设置请求头
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
@@ -324,7 +324,7 @@ class WcnrJqMonitor:
             "X-Requested-With": "XMLHttpRequest"
         })
 
-        # 鍒濆鍖朞racle瀹㈡埛绔?
+        # 初始化 Oracle 客户端
         self.use_thick_mode = self._init_oracle_client()
 
     def _init_oracle_client(self) -> bool:
@@ -576,7 +576,7 @@ class WcnrJqMonitor:
         try:
             import psycopg2
         except ModuleNotFoundError:
-            self.logger.error("Kingbase椹卞姩缂哄け: 璇峰畨瑁?psycopg2-binary")
+            self.logger.error("Kingbase 驱动缺失: 请安装 psycopg2-binary")
             return None, "kingbase_driver_missing"
 
         sql = """

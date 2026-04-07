@@ -258,7 +258,7 @@ def build_sms_content(row: Dict[str, Any]) -> str:
     return (
         f"基础管控中心提醒你:{fj}{pcs}"
         f"【纠纷名称】：{jfmc}，"
-        f"{yjqk}"        
+        f"{yjqk}"
         f"【纠纷登记时间】：{djsj}，"
         f"【纠纷类型】：{jflx}，"
         f"【发生时间】：{fssj}"
@@ -380,6 +380,7 @@ def insert_sms(
             }
         )
 
+
 def normalize_mobile(mobile: str) -> str:
     return str(mobile).strip()
 
@@ -497,9 +498,9 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
         for index, (row, eid) in enumerate(zip(targets, eids), start=1):
             result_row = dict(row)
-            systemid = str(row.get("绯荤粺缂栧彿") or "").strip()
-            business_no = str(row.get("涓氬姟娴佹按鍙?") or "").strip()
-            station_code = str(row.get("鎵€灞炴淳鍑烘墍浠ｇ爜") or "").strip()
+            systemid = str(row.get("系统编号") or "").strip()
+            business_no = str(row.get("业务流水号") or "").strip()
+            station_code = str(row.get("所属派出所代码") or "").strip()
             event_id = eid or systemid or business_no or f"dxpt_{uuid4().hex}"
 
             result_row.update(

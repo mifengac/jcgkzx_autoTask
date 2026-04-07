@@ -1,7 +1,7 @@
 # 主题源与主题最终配置清单
 
-这三套方案共用同一个数据源 `警情监测`，只是主题过滤条件不同。  
-数据源每 10 分钟跑一次，抓最近 3 天的数据，然后让三个主题分别做二次过滤。
+下面这些主题方案共用同一个数据源 `警情监测`，只是主题过滤条件不同。
+数据源每 10 分钟跑一次，抓最近 3 天的数据，然后让各个主题分别做二次过滤。
 
 ## 一、公共数据源配置
 
@@ -241,15 +241,334 @@
 - 这一版只做关键词二次过滤，不再加额外的分局、派出所维度条件。
 - `dedup_key_template` 继续保持 `{event_key}`，先把 Oracle `EID` 长度控制住。
 
-## 五、录入顺序
+## 五、方案四：黄赌打架警情
+
+### 主题配置
+
+- `theme_name`：`黄赌打架警情`
+- `theme_code`：`huangdu_dajia_jq`
+- `priority`：`100`
+- `dedup_mode`：`permanent`
+- `dedup_key_template`：`{event_key}`
+
+`filter_expr` 录入下面这段，其中 `value` 里的代码列表要先按“列表生成规则”生成后再填入：
+
+```json
+{
+  "field": "newOriCharaSubclass",
+  "label": "原始警情细类",
+  "op": "in",
+  "value": [
+    "09020100",
+    "09020000",
+    "02051899",
+    "02051809",
+    "02051808",
+    "02051807",
+    "02051806",
+    "02051805",
+    "02051804",
+    "02051803",
+    "02051802",
+    "02051801",
+    "02051800",
+    "01051200",
+    "01051199",
+    "01051104",
+    "01051103",
+    "01051102",
+    "01051101",
+    "01051100",
+    "09019900",
+    "09010600",
+    "09010500",
+    "09010400",
+    "09010300",
+    "09010200",
+    "09010100",
+    "09010000",
+    "02052099",
+    "02052004",
+    "02052003",
+    "02052002",
+    "02052001",
+    "02052000",
+    "01050499",
+    "01050405",
+    "02010899",
+    "02010803",
+    "02010802",
+    "02010801",
+    "01050102",
+    "02010800",
+    "01050404",
+    "01050403",
+    "01050402",
+    "01050401",
+    "01050400",
+    "09029900",
+    "09020500",
+    "09020400",
+    "09020300",
+    "09020200",
+    "01030300",
+    "02031000",
+    "02030100"
+  ]
+}
+```
+
+### 列表生成规则
+
+在已登录环境中请求 `/dsjfx/plan/treeViewData`，从返回 JSON 数组中筛选 `pId` 属于下面 3 个值的节点，然后提取这些节点的 `tag` 字段，去重后填入上面的 `value`：
+
+- `251CEE9D26A54E598D568AA9BA0DF463`
+- `5BF6A1CA6C3D4ED9896244554A1BA87C`
+- `79958C902AE14BBDBB3F1FD9AD6AA3FC`
+
+可直接按下面这个浏览器控制台脚本生成：
+
+```js
+const targetPids = new Set([
+  "251CEE9D26A54E598D568AA9BA0DF463",
+  "5BF6A1CA6C3D4ED9896244554A1BA87C",
+  "79958C902AE14BBDBB3F1FD9AD6AA3FC"
+]);
+const tags = [...new Set(treeData
+  .filter(item => targetPids.has(item.pId))
+  .map(item => item.tag)
+  .filter(Boolean))];
+console.log(tags);
+```
+
+### 接收规则
+
+- `rule_name`：`黄赌打架警情固定接收人`
+- `rule_type`：`fixed_receivers`
+- `source_field`：留空
+- `target_match_field`：默认 `sspcsdm`
+- `priority`：`100`
+- `enabled`：勾上
+- `fixed_receivers`：一行一个手机号
+- `filter_json`：`{}`
+
+### 短信模板
+
+```text
+【黄赌打架警情】
+报警时间：{alarmTime}
+派出所：{duty_dept_name}
+警情编号：{case_no}
+地点：{occur_address}
+报警内容：{case_contents}
+处警情况：{replies}
+命中关键字：{命中关键字}
+```
+
+说明：
+
+- 这个主题主要依赖 `newOriCharaSubclass` 的代码命中。
+- 如果短信里要更直观显示分类名称，建议后续在适配层补一个代码到名称的映射字段。
+
+## 六、方案五：未成年人警情
+
+### 主题配置
+
+- `theme_name`：`未成年人警情`
+- `theme_code`：`juvenile_case_jq`
+- `priority`：`100`
+- `dedup_mode`：`permanent`
+- `dedup_key_template`：`{event_key}`
+
+`filter_expr` 录入下面这段，其中第一个条件的 `value` 要先按“列表生成规则”生成后再填入：
+
+```json
+{
+  "all": [
+    {
+      "field": "newCharaSubclass",
+      "label": "警情细类",
+      "op": "in",
+      "value": [
+        "从 /dsjfx/nature/treeNewViewData 中提取的 id 列表"
+      ]
+    },
+    {
+      "field": "caseMarkNo",
+      "label": "警情标记",
+      "op": "contains_any",
+      "value": [
+        "01020201",
+        "0102020101",
+        "0102020102",
+        "0102020103"
+      ]
+    }
+  ]
+}
+```
+
+### 列表生成规则
+
+在已登录环境中请求 `/dsjfx/nature/treeNewViewData`，从返回 JSON 数组中筛选 `id` 以 `01` 或 `02` 开头的节点，然后提取这些节点的 `id`，去重后填入上面第一个条件的 `value`。
+
+可直接按下面这个浏览器控制台脚本生成：
+
+```js
+const ids = [...new Set(treeData
+  .filter(item => /^(01|02)/.test(item.id || ""))
+  .map(item => item.id)
+  .filter(Boolean))];
+console.log(ids);
+```
+
+### 接收规则
+
+- `rule_name`：`未成年人警情固定接收人`
+- `rule_type`：`fixed_receivers`
+- `source_field`：留空
+- `target_match_field`：默认 `sspcsdm`
+- `priority`：`100`
+- `enabled`：勾上
+- `fixed_receivers`：一行一个手机号
+- `filter_json`：`{}`
+
+### 短信模板
+
+```text
+【未成年人警情】
+报警时间：{alarmTime}
+派出所：{duty_dept_name}
+警情编号：{case_no}
+地点：{occur_address}
+报警内容：{case_contents}
+处警情况：{replies}
+命中关键字：{命中关键字}
+```
+
+说明：
+
+- 这个主题要求 `newCharaSubclass` 和 `caseMarkNo` 两个条件同时满足。
+- `caseMarkNo` 这里使用 `contains_any`，兼容单值和逗号拼接字符串两种返回形式。
+
+## 七、方案六：流浪/乞讨警情
+
+### 主题配置
+
+- `theme_name`：`流浪/乞讨警情`
+- `theme_code`：`liulang_qitao_jq`
+- `priority`：`100`
+- `dedup_mode`：`permanent`
+- `dedup_key_template`：`{event_key}`
+
+`filter_expr` 录入下面这段：
+
+```json
+{
+  "any": [
+    {
+      "field": "caseContents",
+      "op": "contains_any",
+      "value": ["流浪", "乞讨"]
+    },
+    {
+      "field": "replies",
+      "op": "contains_any",
+      "value": ["流浪", "乞讨"]
+    }
+  ]
+}
+```
+
+### 接收规则
+
+- `rule_name`：`流浪乞讨警情固定接收人`
+- `rule_type`：`fixed_receivers`
+- `source_field`：留空
+- `target_match_field`：默认 `sspcsdm`
+- `priority`：`100`
+- `enabled`：勾上
+- `fixed_receivers`：一行一个手机号
+- `filter_json`：`{}`
+
+### 短信模板
+
+```text
+【流浪/乞讨警情】
+报警时间：{alarmTime}
+派出所：{duty_dept_name}
+警情编号：{case_no}
+地点：{occur_address}
+报警内容：{case_contents}
+处警情况：{replies}
+命中关键字：{命中关键字}
+```
+
+## 八、方案七：出租屋警情
+
+### 主题配置
+
+- `theme_name`：`出租屋警情`
+- `theme_code`：`chuzuwu_jq`
+- `priority`：`100`
+- `dedup_mode`：`permanent`
+- `dedup_key_template`：`{event_key}`
+
+`filter_expr` 录入下面这段：
+
+```json
+{
+  "any": [
+    {
+      "field": "caseContents",
+      "op": "contains_any",
+      "value": ["出租屋", "租赁"]
+    },
+    {
+      "field": "replies",
+      "op": "contains_any",
+      "value": ["出租屋", "租赁"]
+    }
+  ]
+}
+```
+
+### 接收规则
+
+- `rule_name`：`出租屋警情固定接收人`
+- `rule_type`：`fixed_receivers`
+- `source_field`：留空
+- `target_match_field`：默认 `sspcsdm`
+- `priority`：`100`
+- `enabled`：勾上
+- `fixed_receivers`：一行一个手机号
+- `filter_json`：`{}`
+
+### 短信模板
+
+```text
+【出租屋警情】
+报警时间：{alarmTime}
+派出所：{duty_dept_name}
+警情编号：{case_no}
+地点：{occur_address}
+报警内容：{case_contents}
+处警情况：{replies}
+命中关键字：{命中关键字}
+```
+
+## 九、录入顺序
 
 1. 先录入公共数据源 `警情监测`。
 2. 再录入 `清明涉林地/坟地警情` 主题和固定接收规则。
 3. 再录入 `精神类警情` 主题和固定接收规则。
 4. 再录入 `扬言极端警情` 主题和固定接收规则。
-5. 最后分别点“演练”，确认短信模板和接收手机号都正确。
+5. 再录入 `黄赌打架警情`，先从 `/dsjfx/plan/treeViewData` 生成 `tag` 列表，再填入 `filter_expr`。
+6. 再录入 `未成年人警情`，先从 `/dsjfx/nature/treeNewViewData` 生成 `id` 列表，再填入 `filter_expr`。
+7. 再录入 `流浪/乞讨警情` 和 `出租屋警情`。
+8. 最后分别点“演练”，确认每个主题的 `matched_count`、`receiver_mobiles` 和 `send_status` 都符合预期。
 
-## 六、`runtime_config` 到底怎么填
+## 十、`runtime_config` 到底怎么填
 
 `runtime_config` 不是 `.env`，也不是把账号密码硬编码进脚本 ZIP。  
 它是“任务级运行配置 JSON”，前端会把它传给脚本的 `run(context)`。
@@ -296,4 +615,3 @@
 
 - `zq_kshddpt_dsjfx_jq.py` 只做同步，不发短信，所以不需要模板和接收规则。
 - `runtime_config` 里只放它运行需要的登录、接口、数据库参数即可。
-

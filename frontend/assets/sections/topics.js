@@ -56,10 +56,10 @@ function renderTopicCards(app) {
 }
 
 function renderTopicForm(app) {
-  const topic = app.getCurrentTopic();
+  const topic = app.state.topicEditorCreating ? null : app.getCurrentTopic();
   const templates = app.state.templates;
   return `
-    <div class="banner">${topic ? `当前主题: ${escapeHtml(topic.theme_name)} / ${escapeHtml(topic.theme_code)}` : "当前未选中主题"}</div>
+    <div class="banner">${app.state.topicEditorCreating ? "当前正在新建主题，请先选择数据源，再填写主题表单。" : topic ? `当前主题: ${escapeHtml(topic.theme_name)} / ${escapeHtml(topic.theme_code)}` : "当前未选中主题"}</div>
     <form id="topic-form" class="form-stack">
       <div class="form-grid two">
         ${sourceFilter(app)}
@@ -223,6 +223,9 @@ export const topicsSection = {
     { key: "rules", label: "接收规则", hint: "维护固定接收人与字段匹配规则" },
   ],
   async load(app) {
+    if (app.state.route.secondary !== "editor") {
+      app.state.topicEditorCreating = false;
+    }
     await app.reloadThemeSources();
     await app.reloadTemplates();
   },
@@ -255,6 +258,7 @@ export const topicsSection = {
 
     document.querySelectorAll("[data-action='topic-select']").forEach((select) => {
       select.addEventListener("change", async () => {
+        app.state.topicEditorCreating = false;
         await app.setSelectedTopic(Number(select.value || 0) || null);
         app.render();
       });
@@ -262,6 +266,7 @@ export const topicsSection = {
 
     document.querySelectorAll("[data-action='topic-select-card']").forEach((button) => {
       button.addEventListener("click", async () => {
+        app.state.topicEditorCreating = false;
         await app.setSelectedTopic(Number(button.dataset.id));
         app.render();
       });
@@ -269,6 +274,7 @@ export const topicsSection = {
 
     document.querySelectorAll("[data-action='topic-edit']").forEach((button) => {
       button.addEventListener("click", async () => {
+        app.state.topicEditorCreating = false;
         await app.setSelectedTopic(Number(button.dataset.id));
         app.navigate("topics", "editor");
       });
@@ -276,6 +282,7 @@ export const topicsSection = {
 
     document.querySelectorAll("[data-action='topic-reset']").forEach((button) => {
       button.addEventListener("click", () => {
+        app.state.topicEditorCreating = true;
         app.state.selectedTopicId = null;
         app.render();
       });
@@ -305,13 +312,14 @@ export const topicsSection = {
             dedup_key_template: payload.get("dedup_key_template") || "{event_key}",
           };
 
-          const currentTopic = app.getCurrentTopic();
+          const currentTopic = app.state.topicEditorCreating ? null : app.getCurrentTopic();
           if (currentTopic) {
             await api(`/api/theme-topics/${currentTopic.id}`, jsonRequest("PUT", body));
             app.flash("主题已更新。");
           } else {
             const created = await api(`/api/theme-sources/${sourceId}/topics`, jsonRequest("POST", body));
             app.state.selectedTopicId = created.id;
+            app.state.topicEditorCreating = false;
             app.flash("主题已创建。");
           }
           app.state.selectedSourceId = sourceId;
