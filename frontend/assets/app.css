@@ -53,7 +53,7 @@ textarea {
 .app-shell {
   width: min(1500px, calc(100% - 28px));
   margin: 0 auto;
-  padding: 22px 0 30px;
+  padding: 18px 0 24px;
 }
 
 .hero {
@@ -61,7 +61,7 @@ textarea {
   justify-content: space-between;
   gap: 20px;
   align-items: flex-start;
-  padding: 28px 30px;
+  padding: 24px 28px;
   border-radius: 30px;
   background:
     linear-gradient(135deg, rgba(12, 94, 75, 0.97), rgba(24, 55, 47, 0.93)),
@@ -87,9 +87,9 @@ textarea {
 }
 
 .hero-copy p:last-child {
-  max-width: 760px;
-  margin: 12px 0 0;
-  line-height: 1.7;
+  max-width: 620px;
+  margin: 10px 0 0;
+  line-height: 1.5;
   color: rgba(246, 242, 234, 0.86);
 }
 
@@ -139,6 +139,9 @@ textarea {
 .subnav-link strong {
   display: block;
   font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-chip span,
@@ -147,6 +150,9 @@ textarea {
   margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-chip.active,
@@ -180,7 +186,7 @@ textarea {
 .secondary-pane {
   position: sticky;
   top: 20px;
-  padding: 18px;
+  padding: 16px;
   border-radius: var(--radius-lg);
   background: rgba(255, 251, 246, 0.88);
   border: 1px solid var(--panel-border);
@@ -189,7 +195,7 @@ textarea {
 }
 
 .pane-header {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .secondary-nav {
@@ -198,7 +204,7 @@ textarea {
 }
 
 .subnav-link {
-  padding: 12px 14px;
+  padding: 10px 14px;
   text-align: left;
 }
 
@@ -212,7 +218,7 @@ textarea {
   justify-content: space-between;
   gap: 18px;
   align-items: end;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: var(--radius-lg);
   background: rgba(255, 251, 246, 0.88);
   border: 1px solid var(--panel-border);
@@ -225,8 +231,12 @@ textarea {
 }
 
 .section-header p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
+  max-width: 36ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .section-header .meta {
@@ -245,7 +255,7 @@ textarea {
 
 .content-area {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .content-grid {
@@ -256,7 +266,7 @@ textarea {
 
 .panel {
   grid-column: span 6;
-  padding: 20px;
+  padding: 18px;
   border-radius: var(--radius-lg);
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -278,20 +288,20 @@ textarea {
 .panel-header {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: start;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .panel-header h3 {
   margin: 0;
-  font: 700 24px/1.12 var(--font-head);
+  font: 700 22px/1.12 var(--font-head);
 }
 
 .panel-header p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .stat-grid {
@@ -582,8 +592,21 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 760px;
   background: rgba(255, 255, 255, 0.86);
+}
+
+.table-col-action {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.table-action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 th,
@@ -668,9 +691,9 @@ tbody tr:hover {
   position: fixed;
   top: 0;
   right: 0;
-  width: min(720px, 100vw);
+  width: min(100vw, clamp(880px, 72vw, 1120px));
   height: 100vh;
-  padding: 20px 20px 24px;
+  padding: 18px 20px 22px;
   background: #fcfaf5;
   border-left: 1px solid rgba(27, 53, 48, 0.12);
   box-shadow: -18px 0 40px rgba(20, 34, 31, 0.16);
@@ -683,31 +706,31 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 12px;
   align-items: start;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid rgba(27, 53, 48, 0.1);
 }
 
 .drawer-header h2 {
   margin: 0;
-  font: 700 26px/1.14 var(--font-head);
+  font: 700 24px/1.14 var(--font-head);
 }
 
 .drawer-body {
   display: grid;
-  gap: 16px;
-  margin-top: 18px;
+  gap: 14px;
+  margin-top: 16px;
 }
 
 .detail-block {
-  padding: 16px;
+  padding: 14px;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid rgba(27, 53, 48, 0.1);
 }
 
 .detail-block h3 {
-  margin: 0 0 10px;
-  font-size: 18px;
+  margin: 0 0 8px;
+  font-size: 17px;
 }
 
 .detail-grid {
@@ -720,7 +743,7 @@ tbody tr:hover {
 }
 
 .detail-item {
-  padding: 10px 12px;
+  padding: 9px 11px;
   border-radius: 12px;
   background: rgba(13, 107, 87, 0.04);
 }
@@ -735,12 +758,76 @@ tbody tr:hover {
 .json-block,
 .text-block {
   margin: 0;
-  padding: 14px;
+  padding: 13px 14px;
   border-radius: 14px;
-  background: #14302a;
-  color: #f6f1e9;
+  background: #f4efe6;
+  color: #25423b;
+  border: 1px solid rgba(27, 53, 48, 0.1);
   overflow: auto;
   white-space: pre-wrap;
+}
+
+.drawer-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 244, 238, 0.96));
+  border: 1px solid rgba(27, 53, 48, 0.1);
+}
+
+.drawer-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.drawer-card-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.drawer-card-meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.drawer-card-meta-item {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(13, 107, 87, 0.04);
+}
+
+.drawer-card-meta-item strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.drawer-card-summary {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(27, 53, 48, 0.08);
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.drawer-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .split-layout {
@@ -801,5 +888,13 @@ tbody tr:hover {
   .detail-drawer {
     width: 100vw;
     padding: 18px 16px 20px;
+  }
+
+  .drawer-card-header {
+    flex-direction: column;
+  }
+
+  .drawer-card-footer {
+    justify-content: flex-start;
   }
 }

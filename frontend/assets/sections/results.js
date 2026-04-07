@@ -56,7 +56,7 @@ function renderResultTable(app) {
     item.receiver_mobiles.join("<br>") || "-",
     `<span class="mono">${truncateText(item.oracle_eid, 36)}</span>`,
     truncateText(item.event_key, 28),
-    `<button class="small-button" type="button" data-action="open-detail" data-type="theme-result" data-id="${item.id}">查看详情</button>`,
+    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-result" data-id="${item.id}">详情</button></div>`,
   ]);
 
   return `
@@ -71,8 +71,8 @@ function renderResultTable(app) {
 export const resultsSection = {
   key: "results",
   label: "命中结果",
-  description: "用筛选和分页查看命中的事件，不再把整批详情一次性渲染出来。",
-  tabs: [{ key: "list", label: "结果列表", hint: "按页查看命中数据" }],
+  description: "按页查看命中结果。",
+  tabs: [{ key: "list", label: "结果列表", hint: "结果分页" }],
   async load(app) {
     await app.reloadThemeSources();
     await app.refreshThemeResults();
@@ -80,8 +80,8 @@ export const resultsSection = {
   render(app) {
     return `
       <div class="content-grid">
-        ${panel("筛选条件", "按数据源、主题、时间和发送状态缩小结果范围。", renderFilters(app), { span: 4 })}
-        ${panel("命中结果列表", "默认只显示摘要，点击后在右侧抽屉看完整明细。", renderResultTable(app), { span: 8 })}
+        ${panel("筛选条件", "先缩范围。", renderFilters(app), { span: 4 })}
+        ${panel("命中结果列表", "列表看摘要。", renderResultTable(app), { span: 8 })}
       </div>
     `;
   },

@@ -340,7 +340,7 @@ function renderTaskRuns(app) {
       String(run.hit_count),
       String(run.send_count),
       formatTime(run.finished_at || run.started_at),
-      `<button class="small-button" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">查看详情</button>`,
+      `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">详情</button></div>`,
     ])
   ) : emptyState("当前任务暂无运行记录。");
 }
@@ -348,12 +348,12 @@ function renderTaskRuns(app) {
 export const tasksSection = {
   key: "tasks",
   label: "自定义任务",
-  description: "保留旧模块能力，但按脚本、任务、规则、运行记录拆成二级页面。",
+  description: "管理脚本、任务与规则。",
   tabs: [
     { key: "scripts", label: "脚本上传", hint: "管理脚本包" },
-    { key: "config", label: "任务配置", hint: "管理任务与调度" },
-    { key: "rules", label: "接收规则", hint: "维护任务规则与联系人查询" },
-    { key: "runs", label: "运行记录", hint: "查看旧模块运行详情" },
+    { key: "config", label: "任务配置", hint: "管理任务" },
+    { key: "rules", label: "接收规则", hint: "维护规则" },
+    { key: "runs", label: "运行记录", hint: "查看运行" },
   ],
   async load(app) {
     await Promise.all([app.reloadScripts(), app.reloadTemplates(), app.reloadTasks()]);
@@ -364,29 +364,29 @@ export const tasksSection = {
   render(app) {
     if (app.state.route.secondary === "scripts") {
       return `<div class="content-grid">
-        ${panel("上传脚本 ZIP", "继续沿用现有脚本上传模式，但单独放在这里。", renderScriptUpload(app), { span: 5 })}
-        ${panel("脚本列表", "查看脚本入口文件和已上传版本。", renderScriptList(app), { span: 7 })}
+        ${panel("上传脚本 ZIP", "上传脚本包。", renderScriptUpload(app), { span: 5 })}
+        ${panel("脚本列表", "查看版本与入口。", renderScriptList(app), { span: 7 })}
       </div>`;
     }
 
     if (app.state.route.secondary === "rules") {
       return `<div class="content-grid">
-        ${panel("任务接收规则", "规则编辑和任务选择分开管理，便于持续扩展。", renderTaskRuleForm(app), { span: 7 })}
-        ${panel("规则列表", "这里只展示当前任务的规则。", renderTaskRuleList(app), { span: 5 })}
-        ${panel("联系人检索", "保留原有联系人查询能力，方便核对规则命中对象。", renderContactSearch(app), { span: 12 })}
+        ${panel("任务接收规则", "编辑当前规则。", renderTaskRuleForm(app), { span: 7 })}
+        ${panel("规则列表", "只看当前任务。", renderTaskRuleList(app), { span: 5 })}
+        ${panel("联系人检索", "核对命中对象。", renderContactSearch(app), { span: 12 })}
       </div>`;
     }
 
     if (app.state.route.secondary === "runs") {
       return `<div class="content-grid">
-        ${panel("当前任务", "运行记录默认跟随当前选中任务。", `<div class="banner">${currentTask(app) ? `当前任务: ${escapeHtml(currentTask(app).task_name)}` : "请先在任务配置中选中一个任务。"}</div>${taskSelector(app, "task-run-current", app.state.taskRunPage.taskId || app.state.selectedTaskId)}`, { span: 4 })}
-        ${panel("运行记录", "点击后统一在抽屉中看详情，不再把整包 JSON 直接铺开。", renderTaskRuns(app), { span: 8 })}
+        ${panel("当前任务", "默认跟随当前任务。", `<div class="banner">${currentTask(app) ? `当前任务: ${escapeHtml(currentTask(app).task_name)}` : "请先在任务配置中选中一个任务。"}</div>${taskSelector(app, "task-run-current", app.state.taskRunPage.taskId || app.state.selectedTaskId)}`, { span: 4 })}
+        ${panel("运行记录", "抽屉看详情。", renderTaskRuns(app), { span: 8 })}
       </div>`;
     }
 
     return `<div class="content-grid">
-      ${panel("任务表单", "旧的任务配置保留，但从脚本上传和规则管理中拆开。", renderTaskForm(app), { span: 7 })}
-      ${panel("任务列表", "选中任务后，规则页和运行记录页都会复用当前上下文。", renderTaskList(app), { span: 5 })}
+      ${panel("任务表单", "编辑任务参数。", renderTaskForm(app), { span: 7 })}
+      ${panel("任务列表", "选中后联动规则。", renderTaskList(app), { span: 5 })}
     </div>`;
   },
   bind(app) {

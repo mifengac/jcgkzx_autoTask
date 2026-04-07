@@ -1,5 +1,5 @@
 import { api } from "./core/api.js";
-import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, textBlock } from "./core/ui.js";
+import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, textBlock, truncateText } from "./core/ui.js";
 import { contactsSection } from "./sections/contacts.js";
 import { overviewSection } from "./sections/overview.js";
 import { resultsSection } from "./sections/results.js";
@@ -612,105 +612,184 @@ const app = {
       });
     });
   },
-  renderThemeResultDrawer(detail) {
+  renderDetailFacts(items, cols = "two") {
+    const visibleItems = items.filter((item) => item.value !== undefined && item.value !== null && item.value !== "");
+    if (!visibleItems.length) {
+      return emptyState("暂无信息。");
+    }
     return `
-      <div class="detail-block">
-        <h3>基本信息</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>数据源</strong>${escapeHtml(detail.source_name)}</div>
-          <div class="detail-item"><strong>主题</strong>${escapeHtml(detail.topic_name)}</div>
-          <div class="detail-item"><strong>警情编号</strong>${escapeHtml(detail.case_no || "-")}</div>
-          <div class="detail-item"><strong>发送状态</strong>${statusBadge(detail.send_status)}</div>
-          <div class="detail-item"><strong>Oracle EID</strong><span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span></div>
-          <div class="detail-item"><strong>接收人</strong>${escapeHtml(detail.receiver_mobiles.join(", ") || "-")}</div>
+      <div class="detail-grid ${cols}">
+        ${visibleItems.map((item) => `
+          <div class="detail-item">
+            <strong>${escapeHtml(item.label)}</strong>
+            ${item.value}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  },
+  renderDrawerCard({ title, status, meta = [], summary = "", actionHtml = "" }) {
+    return `
+      <article class="drawer-card">
+        <div class="drawer-card-header">
+          <h4 class="drawer-card-title">${title}</h4>
+          ${status || ""}
+        </div>
+        ${meta.length ? `
+          <div class="drawer-card-meta">
+            ${meta.map((item) => `
+              <div class="drawer-card-meta-item">
+                <strong>${escapeHtml(item.label)}</strong>
+                ${item.value}
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
+        ${summary ? `<div class="drawer-card-summary">${summary}</div>` : ""}
+        ${actionHtml ? `<div class="drawer-card-footer">${actionHtml}</div>` : ""}
+      </article>
+    `;
+  },
+  renderDrawerCardList(items, emptyText, renderer) {
+    if (!items.length) {
+      return emptyState(emptyText);
+    }
+    return `<div class="drawer-card-list">${items.map((item) => renderer(item)).join("")}</div>`;
+  },
+  renderThemeResultDrawer(detail) {
+    const receiverText = escapeHtml((detail.receiver_mobiles || []).join(", ") || "-");
+    const matchedRules = escapeHtml((detail.matched_rule_ids || []).join(", ") || "无");
+    return `
+      <div class="detail-grid two">
+        <div class="detail-block">
+          <h3>基本信息</h3>
+          ${this.renderDetailFacts([
+            { label: "数据源", value: escapeHtml(detail.source_name || "-") },
+            { label: "主题", value: escapeHtml(detail.topic_name || "-") },
+            { label: "警情编号", value: escapeHtml(detail.case_no || detail.event_key || "-") },
+            { label: "发送状态", value: statusBadge(detail.send_status) },
+            { label: "Oracle EID", value: `<span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "事件键", value: `<span class="mono">${escapeHtml(detail.event_key || "-")}</span>` },
+          ])}
+        </div>
+        <div class="detail-block">
+          <h3>接收信息</h3>
+          ${this.renderDetailFacts([
+            { label: "接收人", value: receiverText },
+            { label: "命中规则", value: matchedRules },
+            { label: "数据源 ID", value: escapeHtml(String(detail.source_id ?? "-")) },
+            { label: "主题 ID", value: escapeHtml(String(detail.topic_id ?? "-")) },
+          ])}
         </div>
       </div>
-      <div class="detail-block">
-        <h3>短信内容</h3>
-        ${textBlock(detail.rendered_message || "")}
-      </div>
-      <div class="detail-block">
-        <h3>命中规则</h3>
-        ${textBlock((detail.matched_rule_ids || []).join(", ") || "无")}
-      </div>
-      <div class="detail-block">
-        <h3>原始数据</h3>
-        ${jsonBlock(detail.raw_result)}
+      <div class="detail-grid two">
+        <div class="detail-block">
+          <h3>短信内容</h3>
+          ${textBlock(detail.rendered_message || "")}
+        </div>
+        <div class="detail-block">
+          <h3>原始数据</h3>
+          ${jsonBlock(detail.raw_result)}
+        </div>
       </div>
     `;
   },
   renderThemeSmsLogDrawer(detail) {
     return `
-      <div class="detail-block">
-        <h3>发送概要</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>数据源</strong>${escapeHtml(detail.source_name)}</div>
-          <div class="detail-item"><strong>主题</strong>${escapeHtml(detail.topic_name)}</div>
-          <div class="detail-item"><strong>手机号</strong>${escapeHtml(detail.mobile)}</div>
-          <div class="detail-item"><strong>发送状态</strong>${statusBadge(detail.status)}</div>
-          <div class="detail-item"><strong>Oracle EID</strong><span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span></div>
-          <div class="detail-item"><strong>关联命中状态</strong>${statusBadge(detail.result_send_status || "-")}</div>
+      <div class="detail-grid two">
+        <div class="detail-block">
+          <h3>发送概要</h3>
+          ${this.renderDetailFacts([
+            { label: "数据源", value: escapeHtml(detail.source_name || "-") },
+            { label: "主题", value: escapeHtml(detail.topic_name || "-") },
+            { label: "手机号", value: escapeHtml(detail.mobile || "-") },
+            { label: "发送状态", value: statusBadge(detail.status) },
+            { label: "Oracle EID", value: `<span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "命中状态", value: statusBadge(detail.result_send_status || "-") },
+          ])}
+        </div>
+        <div class="detail-block">
+          <h3>失败与回执</h3>
+          ${this.renderDetailFacts([
+            { label: "失败原因", value: escapeHtml(detail.error_message || "-") },
+            { label: "平台回执", value: escapeHtml(detail.provider_msg_id || "-") },
+            { label: "命中结果 ID", value: escapeHtml(String(detail.topic_result_id ?? "-")) },
+            { label: "发送时间", value: escapeHtml(formatTime(detail.created_at)) },
+          ])}
         </div>
       </div>
-      <div class="detail-block">
-        <div class="panel-header" style="margin-bottom:12px;">
-          <div><h3>短信内容</h3><p>支持复制后外部复核。</p></div>
-          <div><button class="small-button" type="button" data-action="copy-text" data-target="#sms-log-content">复制短信内容</button></div>
+      <div class="detail-grid two">
+        <div class="detail-block">
+          <div class="panel-header" style="margin-bottom:10px;">
+            <div><h3>短信内容</h3><p>支持复制。</p></div>
+            <div><button class="small-button" type="button" data-action="copy-text" data-target="#sms-log-content">复制</button></div>
+          </div>
+          <pre id="sms-log-content" class="text-block">${escapeHtml(detail.content || "")}</pre>
         </div>
-        <pre id="sms-log-content" class="text-block">${escapeHtml(detail.content || "")}</pre>
-      </div>
-      <div class="detail-block">
-        <h3>失败原因 / 回执</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>失败原因</strong>${escapeHtml(detail.error_message || "-")}</div>
-          <div class="detail-item"><strong>平台回执</strong>${escapeHtml(detail.provider_msg_id || "-")}</div>
+        <div class="detail-block">
+          <div class="panel-header" style="margin-bottom:10px;">
+            <div><h3>关联命中</h3><p>可继续追溯。</p></div>
+            ${detail.topic_result_id ? `<div><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">命中详情</button></div>` : ""}
+          </div>
+          ${jsonBlock(detail.raw_result)}
         </div>
-      </div>
-      <div class="detail-block">
-        <div class="panel-header" style="margin-bottom:12px;">
-          <div><h3>关联命中数据</h3><p>这里可以继续追到原始命中记录。</p></div>
-          ${detail.topic_result_id ? `<div><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">查看命中详情</button></div>` : ""}
-        </div>
-        ${jsonBlock(detail.raw_result)}
       </div>
     `;
   },
   renderThemeRunDrawer(detail) {
-    const resultRows = (detail.results || []).slice(0, 10).map((item) => `
-      <tr>
-        <td>${escapeHtml(item.case_no || item.event_key)}</td>
-        <td>${statusBadge(item.send_status)}</td>
-        <td>${escapeHtml((item.receiver_mobiles || []).join(", ") || "-")}</td>
-        <td><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">查看详情</button></td>
-      </tr>
-    `).join("");
-    const smsRows = (detail.sms_logs || []).slice(0, 10).map((item) => `
-      <tr>
-        <td>${formatTime(item.created_at)}</td>
-        <td>${escapeHtml(item.mobile)}</td>
-        <td>${statusBadge(item.status)}</td>
-        <td><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">查看详情</button></td>
-      </tr>
-    `).join("");
+    const resultCards = this.renderDrawerCardList(
+      (detail.results || []).slice(0, 10),
+      "本次运行没有命中结果。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.case_no || item.event_key || `#${item.id}`),
+        status: statusBadge(item.send_status),
+        meta: [
+          { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
+          { label: "Oracle EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "规则", value: escapeHtml((item.matched_rule_ids || []).join(", ") || "无") },
+        ],
+        summary: escapeHtml(truncateText(item.rendered_message || item.content_preview || item.event_key || "无摘要", 160)),
+        actionHtml: item.id
+          ? `<button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">详情</button>`
+          : "",
+      })
+    );
+    const smsCards = this.renderDrawerCardList(
+      (detail.sms_logs || []).slice(0, 10),
+      "本次运行没有短信日志。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.mobile || `#${item.id}`),
+        status: statusBadge(item.status),
+        meta: [
+          { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
+          { label: "Oracle EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
+        ],
+        summary: escapeHtml(truncateText(item.error_message || item.content_preview || item.content || "无内容", 160)),
+        actionHtml: item.id
+          ? `<button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button>`
+          : "",
+      })
+    );
     return `
       <div class="detail-block">
         <h3>运行摘要</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>运行号</strong><span class="mono">${escapeHtml(detail.run_no)}</span></div>
-          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
-          <div class="detail-item"><strong>抓取数量</strong>${detail.fetched_count}</div>
-          <div class="detail-item"><strong>命中数量</strong>${detail.matched_count}</div>
-          <div class="detail-item"><strong>发送数量</strong>${detail.send_count}</div>
-          <div class="detail-item"><strong>错误信息</strong>${escapeHtml(detail.error_message || "-")}</div>
-        </div>
+        ${this.renderDetailFacts([
+          { label: "运行号", value: `<span class="mono">${escapeHtml(detail.run_no)}</span>` },
+          { label: "状态", value: statusBadge(detail.status) },
+          { label: "抓取数量", value: escapeHtml(String(detail.fetched_count ?? "-")) },
+          { label: "命中数量", value: escapeHtml(String(detail.matched_count ?? "-")) },
+          { label: "发送数量", value: escapeHtml(String(detail.send_count ?? "-")) },
+          { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
+        ])}
       </div>
       <div class="detail-block">
         <h3>命中结果（前 10 条）</h3>
-        ${(detail.results || []).length ? `<div class="table-wrap"><table><thead><tr><th>警情</th><th>状态</th><th>接收人</th><th>操作</th></tr></thead><tbody>${resultRows}</tbody></table></div>` : emptyState("本次运行没有命中结果。")}
+        ${resultCards}
       </div>
       <div class="detail-block">
         <h3>短信日志（前 10 条）</h3>
-        ${(detail.sms_logs || []).length ? `<div class="table-wrap"><table><thead><tr><th>时间</th><th>手机号</th><th>状态</th><th>操作</th></tr></thead><tbody>${smsRows}</tbody></table></div>` : emptyState("本次运行没有短信日志。")}
+        ${smsCards}
       </div>
     `;
   },
@@ -722,32 +801,52 @@ const app = {
         || Object.prototype.hasOwnProperty.call(raw, "written_record_count")
         || Object.prototype.hasOwnProperty.call(raw, "target_table")
       )) || null;
-    const resultRows = (detail.results || []).slice(0, 10).map((item) => `
-      <tr>
-        <td>${escapeHtml(item.event_key)}</td>
-        <td>${statusBadge(item.send_status)}</td>
-        <td>${escapeHtml((item.receiver_mobiles || []).join(", ") || "-")}</td>
-      </tr>
-    `).join("");
-    const smsRows = (detail.sms_logs || []).slice(0, 10).map((item) => `
-      <tr>
-        <td>${formatTime(item.created_at)}</td>
-        <td>${escapeHtml(item.mobile)}</td>
-        <td>${statusBadge(item.status)}</td>
-      </tr>
-    `).join("");
+    const resultCards = this.renderDrawerCardList(
+      (detail.results || []).slice(0, 10),
+      "本次运行没有命中结果。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.case_no || item.event_key || `#${item.id}`),
+        status: statusBadge(item.send_status),
+        meta: [
+          { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
+          { label: "事件键", value: `<span class="mono">${escapeHtml(item.event_key || "-")}</span>` },
+          { label: "结果状态", value: escapeHtml(item.status || "-") },
+        ],
+        summary: escapeHtml(truncateText(
+          item.rendered_message
+            || item.raw_result?.message_text
+            || item.raw_result?.error_message
+            || "无摘要",
+          160
+        )),
+      })
+    );
+    const smsCards = this.renderDrawerCardList(
+      (detail.sms_logs || []).slice(0, 10),
+      "本次运行没有短信日志。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.mobile || `#${item.id}`),
+        status: statusBadge(item.status),
+        meta: [
+          { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
+          { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
+          { label: "EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+        ],
+        summary: escapeHtml(truncateText(item.error_message || item.content || "无内容", 160)),
+      })
+    );
     const syncSummaryBlock = syncPayload ? `
       <div class="detail-block">
         <h3>同步摘要</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>同步状态</strong>${statusBadge(syncPayload.status || "-")}</div>
-          <div class="detail-item"><strong>目标表</strong><span class="mono">${escapeHtml(syncPayload.target_table || "-")}</span></div>
-          <div class="detail-item"><strong>抓取数量</strong>${escapeHtml(String(syncPayload.fetched_record_count ?? "-"))}</div>
-          <div class="detail-item"><strong>写入数量</strong>${escapeHtml(String(syncPayload.written_record_count ?? "-"))}</div>
-          <div class="detail-item"><strong>开始时间</strong>${escapeHtml(formatTime(syncPayload.start_time))}</div>
-          <div class="detail-item"><strong>结束时间</strong>${escapeHtml(formatTime(syncPayload.end_time))}</div>
-        </div>
-        <div class="detail-item">
+        ${this.renderDetailFacts([
+          { label: "同步状态", value: statusBadge(syncPayload.status || "-") },
+          { label: "目标表", value: `<span class="mono">${escapeHtml(syncPayload.target_table || "-")}</span>` },
+          { label: "抓取数量", value: escapeHtml(String(syncPayload.fetched_record_count ?? "-")) },
+          { label: "写入数量", value: escapeHtml(String(syncPayload.written_record_count ?? "-")) },
+          { label: "开始时间", value: escapeHtml(formatTime(syncPayload.start_time)) },
+          { label: "结束时间", value: escapeHtml(formatTime(syncPayload.end_time)) },
+        ])}
+        <div class="detail-item" style="margin-top:10px;">
           <strong>同步说明</strong>
           ${textBlock(syncPayload.message_text || JSON.stringify(syncPayload, null, 2))}
         </div>
@@ -757,22 +856,22 @@ const app = {
       ${syncSummaryBlock}
       <div class="detail-block">
         <h3>运行摘要</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>运行号</strong><span class="mono">${escapeHtml(detail.run_no)}</span></div>
-          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
-          <div class="detail-item"><strong>结果数量</strong>${detail.result_count}</div>
-          <div class="detail-item"><strong>命中数量</strong>${detail.hit_count}</div>
-          <div class="detail-item"><strong>发送数量</strong>${detail.send_count}</div>
-          <div class="detail-item"><strong>错误信息</strong>${escapeHtml(detail.error_message || "-")}</div>
-        </div>
+        ${this.renderDetailFacts([
+          { label: "运行号", value: `<span class="mono">${escapeHtml(detail.run_no)}</span>` },
+          { label: "状态", value: statusBadge(detail.status) },
+          { label: "结果数量", value: escapeHtml(String(detail.result_count ?? "-")) },
+          { label: "命中数量", value: escapeHtml(String(detail.hit_count ?? "-")) },
+          { label: "发送数量", value: escapeHtml(String(detail.send_count ?? "-")) },
+          { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
+        ])}
       </div>
       <div class="detail-block">
         <h3>命中结果（前 10 条）</h3>
-        ${(detail.results || []).length ? `<div class="table-wrap"><table><thead><tr><th>事件键</th><th>状态</th><th>接收人</th></tr></thead><tbody>${resultRows}</tbody></table></div>` : emptyState("本次运行没有命中结果。")}
+        ${resultCards}
       </div>
       <div class="detail-block">
         <h3>短信日志（前 10 条）</h3>
-        ${(detail.sms_logs || []).length ? `<div class="table-wrap"><table><thead><tr><th>时间</th><th>手机号</th><th>状态</th></tr></thead><tbody>${smsRows}</tbody></table></div>` : emptyState("本次运行没有短信日志。")}
+        ${smsCards}
       </div>
     `;
   },

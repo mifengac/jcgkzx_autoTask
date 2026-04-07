@@ -19,15 +19,15 @@ function renderFailureRows(items) {
     item.mobile,
     statusBadge(item.status),
     truncateText(item.error_message || item.content_preview, 64),
-    `<button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">查看详情</button>`,
+    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
   ]);
 }
 
 export const overviewSection = {
   key: "overview",
   label: "总览",
-  description: "查看系统健康状态、运行摘要和最近异常。",
-  tabs: [{ key: "home", label: "概览", hint: "系统运行快照" }],
+  description: "查看运行摘要和异常。",
+  tabs: [{ key: "home", label: "概览", hint: "系统快照" }],
   async load(app) {
     await app.loadOverviewData();
   },
@@ -39,7 +39,7 @@ export const overviewSection = {
 
     return `
       <div class="content-grid">
-        ${panel("今日运行概览", "先看数量，再看问题点，帮助快速定位异常区域。",
+        ${panel("今日运行概览", "先看总量。",
           `<div class="stat-grid">
             ${metricCard("数据源", stats.sourceCount)}
             ${metricCard("主题", stats.topicCount)}
@@ -56,7 +56,7 @@ export const overviewSection = {
         )}
         ${panel(
           "最近短信异常",
-          "这里聚焦失败或需要复核的短信发送记录。",
+          "优先看失败。",
           failedLogs.length
             ? table(
               ["发送时间", "数据源", "主题", "手机号", "状态", "原因 / 内容", "操作"],
@@ -67,7 +67,7 @@ export const overviewSection = {
         )}
         ${panel(
           "最近数据源运行",
-          "关注抓取、命中和发送三个指标是否同步增长。",
+          "看抓取与发送。",
           recentThemeRuns.length
             ? table(
               ["运行号", "范围", "状态", "命中", "发送", "结束时间"],
@@ -78,7 +78,7 @@ export const overviewSection = {
         )}
         ${panel(
           "最近自定义任务运行",
-          "旧模块能力保留在一级导航下，这里只展示摘要。",
+          "看任务状态。",
           recentTaskRuns.length
             ? table(
               ["运行号", "范围", "状态", "命中", "发送", "结束时间"],

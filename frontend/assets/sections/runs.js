@@ -43,7 +43,7 @@ function renderThemeRunTable(app) {
     String(run.matched_count),
     String(run.send_count),
     formatTime(run.finished_at || run.started_at),
-    `<button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">查看详情</button>`,
+    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
   ]);
   return table(["运行号", "范围", "状态", "抓取", "命中", "发送", "时间", "操作"], rows);
 }
@@ -77,7 +77,7 @@ function renderTaskRunTable(app) {
     String(run.hit_count),
     String(run.send_count),
     formatTime(run.finished_at || run.started_at),
-    `<button class="small-button" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">查看详情</button>`,
+    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">详情</button></div>`,
   ]);
   return table(["运行号", "范围", "状态", "结果", "命中", "发送", "时间", "操作"], rows);
 }
@@ -85,10 +85,10 @@ function renderTaskRunTable(app) {
 export const runsSection = {
   key: "runs",
   label: "运行历史",
-  description: "把数据源运行和自定义任务运行拆开查看，详情统一走抽屉。",
+  description: "查看运行记录。",
   tabs: [
-    { key: "theme", label: "数据源运行", hint: "主题监测主流程" },
-    { key: "task", label: "自定义任务运行", hint: "旧模块运行记录" },
+    { key: "theme", label: "数据源运行", hint: "主题流程" },
+    { key: "task", label: "自定义任务运行", hint: "任务流程" },
   ],
   async load(app) {
     await app.reloadThemeSources();
@@ -103,16 +103,16 @@ export const runsSection = {
     if (app.state.route.secondary === "task") {
       return `
         <div class="content-grid">
-          ${panel("运行筛选", "这里保留旧模块运行记录，但展示方式改成摘要 + 抽屉详情。", renderTaskRunFilters(app), { span: 4 })}
-          ${panel("自定义任务运行", "默认展示最近运行，可按任务筛选。", renderTaskRunTable(app), { span: 8 })}
+          ${panel("运行筛选", "先筛任务。", renderTaskRunFilters(app), { span: 4 })}
+          ${panel("自定义任务运行", "默认看最近。", renderTaskRunTable(app), { span: 8 })}
         </div>
       `;
     }
 
     return `
       <div class="content-grid">
-        ${panel("运行筛选", "按数据源、主题和状态筛选运行历史。", renderThemeRunFilters(app), { span: 4 })}
-        ${panel("数据源运行历史", "运行详情会拆成命中结果和短信日志两个区域展示。", renderThemeRunTable(app), { span: 8 })}
+        ${panel("运行筛选", "先筛来源。", renderThemeRunFilters(app), { span: 4 })}
+        ${panel("数据源运行历史", "抽屉看详情。", renderThemeRunTable(app), { span: 8 })}
       </div>
     `;
   },

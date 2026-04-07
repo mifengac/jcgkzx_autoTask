@@ -298,10 +298,10 @@ function appendPhoneRow(container) {
 export const contactsSection = {
   key: "contacts",
   label: "联系人管理",
-  description: "集中维护短信联系人主数据，导入联系人只读，手工联系人可直接配置并供规则复用。",
+  description: "维护短信联系人。",
   tabs: [
-    { key: "directory", label: "联系人目录", hint: "筛选、查看、启停联系人" },
-    { key: "editor", label: "联系人编辑", hint: "维护手工联系人和手机号" },
+    { key: "directory", label: "联系人目录", hint: "筛选查看" },
+    { key: "editor", label: "联系人编辑", hint: "维护联系人" },
   ],
   async load(app) {
     if (app.state.route.secondary === "editor") {
@@ -318,15 +318,15 @@ export const contactsSection = {
     if (app.state.route.secondary === "editor") {
       return `
         <div class="content-grid">
-          ${panel("联系人编辑", "手工联系人支持创建和更新，导入联系人仅支持查看。", renderEditor(app), { span: 12 })}
+          ${panel("联系人编辑", "手工可编辑。", renderEditor(app), { span: 12 })}
         </div>
       `;
     }
 
     return `
       <div class="content-grid">
-        ${panel("联系人概况", "联系人目录只负责主数据管理，任务规则页保留轻量只读查询。", renderDirectorySummary(app), { span: 4 })}
-        ${panel("联系人目录", "支持按来源、状态、单位代码和手机号筛选。", `${renderDirectoryFilters(app)}<div style="margin-top:16px;">${renderDirectoryTable(app)}</div>`, { span: 8 })}
+        ${panel("联系人概况", "看联系人状态。", renderDirectorySummary(app), { span: 4 })}
+        ${panel("联系人目录", "支持多条件筛选。", `${renderDirectoryFilters(app)}<div style="margin-top:16px;">${renderDirectoryTable(app)}</div>`, { span: 8 })}
       </div>
     `;
   },

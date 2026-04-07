@@ -216,11 +216,11 @@ function renderRuleForm(app) {
 export const topicsSection = {
   key: "topics",
   label: "主题管理",
-  description: "把主题、过滤条件和接收规则拆开维护，避免和数据源配置混排。",
+  description: "管理主题与规则。",
   tabs: [
-    { key: "list", label: "主题列表", hint: "按数据源查看主题" },
-    { key: "editor", label: "主题编辑", hint: "编辑过滤与去重" },
-    { key: "rules", label: "接收规则", hint: "维护固定接收人与字段匹配规则" },
+    { key: "list", label: "主题列表", hint: "按源查看" },
+    { key: "editor", label: "主题编辑", hint: "编辑过滤" },
+    { key: "rules", label: "接收规则", hint: "维护接收规则" },
   ],
   async load(app) {
     if (app.state.route.secondary !== "editor") {
@@ -233,19 +233,19 @@ export const topicsSection = {
     const tab = app.state.route.secondary;
     if (tab === "editor") {
       return `<div class="content-grid">
-        ${panel("主题表单", "主题与数据源解耦，通过当前选中的数据源进行归属。", renderTopicForm(app), { span: 8 })}
-        ${panel("当前主题列表", "编辑前先确认当前数据源下有哪些主题。", renderTopicCards(app), { span: 4 })}
+        ${panel("主题表单", "编辑主题参数。", renderTopicForm(app), { span: 8 })}
+        ${panel("当前主题列表", "先看当前主题。", renderTopicCards(app), { span: 4 })}
       </div>`;
     }
     if (tab === "rules") {
       return `<div class="content-grid">
-        ${panel("接收规则表单", "这里专门管理当前主题的短信接收策略。", renderRuleForm(app), { span: 7 })}
-        ${panel("接收规则列表", "规则只属于当前主题，不再和任务规则混在一起。", renderRuleCards(app), { span: 5 })}
+        ${panel("接收规则表单", "编辑当前规则。", renderRuleForm(app), { span: 7 })}
+        ${panel("接收规则列表", "只看当前主题。", renderRuleCards(app), { span: 5 })}
       </div>`;
     }
     return `<div class="content-grid">
-      ${panel("主题筛选", "先选数据源，再看对应主题。", sourceFilter(app), { span: 4 })}
-      ${panel("主题列表", "默认展示当前数据源下的全部主题。", renderTopicCards(app), { span: 8 })}
+      ${panel("主题筛选", "先选数据源。", sourceFilter(app), { span: 4 })}
+      ${panel("主题列表", "默认展示当前源。", renderTopicCards(app), { span: 8 })}
     </div>`;
   },
   bind(app) {

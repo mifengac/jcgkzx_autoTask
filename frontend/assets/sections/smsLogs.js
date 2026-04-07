@@ -47,7 +47,7 @@ function renderSmsLogTable(app) {
     statusBadge(item.status),
     item.error_message ? `<span class="muted">${truncateText(item.error_message, 52)}</span>` : truncateText(item.content_preview, 52),
     `<span class="mono">${truncateText(item.provider_msg_id || "-", 20)}</span>`,
-    `<button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">查看详情</button>`,
+    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
   ]);
   return `
     ${table(
@@ -61,8 +61,8 @@ function renderSmsLogTable(app) {
 export const smsLogsSection = {
   key: "sms-logs",
   label: "短信发送记录",
-  description: "单独查看短信发送结果、失败原因、关联主题和接收号码。",
-  tabs: [{ key: "list", label: "发送记录", hint: "按状态筛选与排障" }],
+  description: "查看短信结果与失败原因。",
+  tabs: [{ key: "list", label: "发送记录", hint: "按状态筛选" }],
   async load(app) {
     await app.reloadThemeSources();
     await app.refreshThemeSmsLogs();
@@ -70,8 +70,8 @@ export const smsLogsSection = {
   render(app) {
     return `
       <div class="content-grid">
-        ${panel("筛选条件", "在这里快速聚焦失败短信、重复短信或某个手机号。", renderFilters(app), { span: 4 })}
-        ${panel("短信发送记录", "列表只展示摘要，详情在右侧抽屉中查看与复制。", renderSmsLogTable(app), { span: 8 })}
+        ${panel("筛选条件", "先筛失败项。", renderFilters(app), { span: 4 })}
+        ${panel("短信发送记录", "列表看摘要。", renderSmsLogTable(app), { span: 8 })}
       </div>
     `;
   },

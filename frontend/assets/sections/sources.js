@@ -114,7 +114,7 @@ function renderSourceRunPanel(app) {
           String(run.matched_count),
           String(run.send_count),
           formatTime(run.finished_at || run.started_at),
-          `<button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">查看详情</button>`,
+          `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
         ])
       ) : emptyState("当前数据源暂无运行记录。")}
     </div>
@@ -124,11 +124,11 @@ function renderSourceRunPanel(app) {
 export const sourcesSection = {
   key: "sources",
   label: "数据源管理",
-  description: "集中管理抓取源、调度、参数和手动测试，不再和主题或规则混在一起。",
+  description: "管理数据源与调度。",
   tabs: [
-    { key: "list", label: "列表概览", hint: "查看与切换数据源" },
-    { key: "editor", label: "配置编辑", hint: "编辑抓取参数" },
-    { key: "run", label: "运行测试", hint: "演练与立即执行" },
+    { key: "list", label: "列表概览", hint: "查看数据源" },
+    { key: "editor", label: "配置编辑", hint: "编辑参数" },
+    { key: "run", label: "运行测试", hint: "演练执行" },
   ],
   async load(app) {
     await app.reloadThemeSources();
@@ -150,21 +150,21 @@ export const sourcesSection = {
 
     if (tab === "editor") {
       return `<div class="content-grid">
-        ${panel("数据源概况", "先选中，再进入配置编辑。", summary, { span: 4 })}
-        ${panel("数据源配置", "这里保留调度、时区和 source_config 配置。", renderSourceForm(app), { span: 8 })}
+        ${panel("数据源概况", "先选数据源。", summary, { span: 4 })}
+        ${panel("数据源配置", "编辑调度与参数。", renderSourceForm(app), { span: 8 })}
       </div>`;
     }
 
     if (tab === "run") {
       return `<div class="content-grid">
-        ${panel("数据源概况", "运行测试依赖当前选中的数据源。", summary, { span: 4 })}
-        ${panel("运行测试", "演练和立即执行只作用于当前数据源。", renderSourceRunPanel(app), { span: 8 })}
+        ${panel("数据源概况", "确认当前来源。", summary, { span: 4 })}
+        ${panel("运行测试", "只作用当前源。", renderSourceRunPanel(app), { span: 8 })}
       </div>`;
     }
 
     return `<div class="content-grid">
-      ${panel("数据源概况", "用更清晰的方式查看当前有哪些抓取源在运行。", summary, { span: 4 })}
-      ${panel("数据源列表", "这里只负责切换和概览，不再和主题、规则共用一个页面。", renderSourceCards(app), { span: 8 })}
+      ${panel("数据源概况", "看当前状态。", summary, { span: 4 })}
+      ${panel("数据源列表", "列表只做切换。", renderSourceCards(app), { span: 8 })}
     </div>`;
   },
   bind(app) {

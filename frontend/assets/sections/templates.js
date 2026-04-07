@@ -80,10 +80,10 @@ function renderTemplateEditor(app) {
 export const templatesSection = {
   key: "templates",
   label: "短信模板",
-  description: "管理模板内容、变量预览和模板测试，不再和主题或规则混排。",
+  description: "管理短信模板。",
   tabs: [
-    { key: "list", label: "模板列表", hint: "查看现有模板" },
-    { key: "editor", label: "模板编辑", hint: "编辑与预览" },
+    { key: "list", label: "模板列表", hint: "查看模板" },
+    { key: "editor", label: "模板编辑", hint: "编辑预览" },
   ],
   async load(app) {
     await app.reloadTemplates();
@@ -93,14 +93,14 @@ export const templatesSection = {
     if (tab === "editor") {
       return `
         <div class="content-grid">
-          ${panel("模板编辑与预览", "创建、更新模板，并即时验证变量渲染。", renderTemplateEditor(app), { span: 12 })}
+          ${panel("模板编辑与预览", "编辑并预览。", renderTemplateEditor(app), { span: 12 })}
         </div>
       `;
     }
 
     return `
       <div class="content-grid">
-        ${panel("模板总览", "所有短信模板都在这里集中管理。", renderTemplateList(app), { span: 12 })}
+        ${panel("模板总览", "统一管理模板。", renderTemplateList(app), { span: 12 })}
       </div>
     `;
   },

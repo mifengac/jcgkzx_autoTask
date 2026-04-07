@@ -16,7 +16,6 @@ export function formatTime(value) {
     return "-";
   }
 
-  // Plain timestamps without offset are assumed to already be in local display time.
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
     return text;
   }
@@ -121,9 +120,13 @@ export function textBlock(value) {
 }
 
 export function table(headers, rows) {
-  const headerHtml = headers.map((item) => `<th>${escapeHtml(item)}</th>`).join("");
+  const headerHtml = headers
+    .map((item) => `<th class="${item === "操作" ? "table-col-action" : ""}">${escapeHtml(item)}</th>`)
+    .join("");
   const bodyHtml = rows.length
-    ? rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")
+    ? rows
+      .map((row) => `<tr>${row.map((cell, index) => `<td class="${headers[index] === "操作" ? "table-col-action" : ""}">${cell}</td>`).join("")}</tr>`)
+      .join("")
     : `<tr><td colspan="${headers.length}">${emptyState("暂无数据")}</td></tr>`;
   return `
     <div class="table-wrap">
