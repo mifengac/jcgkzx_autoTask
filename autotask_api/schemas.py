@@ -206,10 +206,20 @@ class ContactPhoneRead(BaseModel):
     mobile: str
     is_primary: bool
     status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ContactPhoneUpsert(JsonPayloadMixin):
+    phone_raw: str
+    is_primary: bool = False
+    status: Literal["active", "inactive"] = "active"
 
 
 class ContactRead(BaseModel):
     id: int
+    source_system: str
+    source_pk: str | None
     xq: str | None
     xqdm: str | None
     sspcs: str | None
@@ -220,9 +230,44 @@ class ContactRead(BaseModel):
     xm: str | None
     zw: str | None
     rwzt: str | None
+    raw_lxdh: str | None
     status: str
     remark: str
+    created_at: datetime
+    updated_at: datetime
     phones: list[ContactPhoneRead] = Field(default_factory=list)
+
+
+class ContactCreate(JsonPayloadMixin):
+    xq: str | None = None
+    xqdm: str | None = None
+    sspcs: str | None = None
+    sspcsdm: str | None = None
+    city_code: str | None = None
+    county_code: str | None = None
+    unit_level: Literal["city", "county", "station", "unknown"] = "unknown"
+    xm: str | None = None
+    zw: str | None = None
+    rwzt: str | None = None
+    status: Literal["active", "inactive"] = "active"
+    remark: str = ""
+    phones: list[ContactPhoneUpsert] = Field(default_factory=list)
+
+
+class ContactUpdate(JsonPayloadMixin):
+    xq: str | None = None
+    xqdm: str | None = None
+    sspcs: str | None = None
+    sspcsdm: str | None = None
+    city_code: str | None = None
+    county_code: str | None = None
+    unit_level: Literal["city", "county", "station", "unknown"] | None = None
+    xm: str | None = None
+    zw: str | None = None
+    rwzt: str | None = None
+    status: Literal["active", "inactive"] | None = None
+    remark: str | None = None
+    phones: list[ContactPhoneUpsert] | None = None
 
 
 class RuleTestResponse(BaseModel):

@@ -1,5 +1,6 @@
 import { api } from "./core/api.js";
 import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, textBlock } from "./core/ui.js";
+import { contactsSection } from "./sections/contacts.js";
 import { overviewSection } from "./sections/overview.js";
 import { resultsSection } from "./sections/results.js";
 import { runsSection } from "./sections/runs.js";
@@ -14,6 +15,7 @@ const sections = [
   sourcesSection,
   topicsSection,
   templatesSection,
+  contactsSection,
   resultsSection,
   smsLogsSection,
   runsSection,
@@ -94,6 +96,23 @@ const state = {
       xqdm: "",
     },
   },
+  contactDirectory: {
+    items: [],
+    total: 0,
+    query: {
+      keyword: "",
+      sspcsdm: "",
+      xqdm: "",
+      rwzt: "",
+      unit_level: "",
+      source_system: "",
+      status: "all",
+      mobile: "",
+      limit: 100,
+    },
+  },
+  editingContactId: null,
+  contactDetail: null,
   drawer: {
     open: false,
     title: "详情",
@@ -359,6 +378,21 @@ const app = {
     state.contacts.items = data.items || [];
     state.contacts.total = data.total || 0;
   },
+  async loadContactDirectory(query = state.contactDirectory.query) {
+    state.contactDirectory.query = { ...state.contactDirectory.query, ...query };
+    const queryString = buildQuery(state.contactDirectory.query);
+    const data = await api(queryString ? `/api/contacts?${queryString}` : "/api/contacts");
+    state.contactDirectory.items = data.items || [];
+    state.contactDirectory.total = data.total || 0;
+  },
+  async loadContactDetail(contactId) {
+    if (!contactId) {
+      state.contactDetail = null;
+      return null;
+    }
+    state.contactDetail = await api(`/api/contacts/${contactId}`);
+    return state.contactDetail;
+  },
   async loadOverviewData() {
     const [themeRuns, taskRuns, failedSmsLogs] = await Promise.all([
       api("/api/theme-runs?limit=5"),
@@ -525,6 +559,11 @@ const app = {
         state.drawer.title = detail.run_no;
         state.drawer.eyebrow = "自定义任务运行";
         state.drawer.bodyHtml = this.renderTaskRunDrawer(detail);
+      } else if (type === "contact") {
+        const detail = await api(`/api/contacts/${id}`);
+        state.drawer.title = detail.xm || detail.sspcs || `#${detail.id}`;
+        state.drawer.eyebrow = "联系人详情";
+        state.drawer.bodyHtml = this.renderContactDrawer(detail);
       }
       this.renderDrawer();
     } catch (error) {
@@ -732,6 +771,52 @@ const app = {
       <div class="detail-block">
         <h3>短信日志（前 10 条）</h3>
         ${(detail.sms_logs || []).length ? `<div class="table-wrap"><table><thead><tr><th>时间</th><th>手机号</th><th>状态</th></tr></thead><tbody>${smsRows}</tbody></table></div>` : emptyState("本次运行没有短信日志。")}
+      </div>
+    `;
+  },
+  renderContactDrawer(detail) {
+    const sourceLabel = detail.source_system === "manual_ui"
+      ? "手工维护"
+      : detail.source_system === "ywdata.b_dxpt_mdjfyj"
+        ? "导入联系人"
+        : detail.source_system;
+    const phoneRows = (detail.phones || []).length
+      ? detail.phones.map((phone) => `
+        <tr>
+          <td>${escapeHtml(phone.phone_raw || "-")}</td>
+          <td>${escapeHtml(phone.mobile || "-")}</td>
+          <td>${statusBadge(phone.status)}</td>
+          <td>${phone.is_primary ? "是" : "否"}</td>
+        </tr>
+      `).join("")
+      : "";
+    return `
+      <div class="detail-block">
+        <h3>联系人概况</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>姓名</strong>${escapeHtml(detail.xm || "-")}</div>
+          <div class="detail-item"><strong>职务</strong>${escapeHtml(detail.zw || "-")}</div>
+          <div class="detail-item"><strong>派出所</strong>${escapeHtml(detail.sspcs || "-")}</div>
+          <div class="detail-item"><strong>派出所代码</strong><span class="mono">${escapeHtml(detail.sspcsdm || "-")}</span></div>
+          <div class="detail-item"><strong>县区</strong>${escapeHtml(detail.xq || "-")}</div>
+          <div class="detail-item"><strong>县区代码</strong><span class="mono">${escapeHtml(detail.xqdm || "-")}</span></div>
+          <div class="detail-item"><strong>来源</strong>${escapeHtml(sourceLabel || "-")}</div>
+          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
+          <div class="detail-item"><strong>任务状态</strong>${escapeHtml(detail.rwzt || "-")}</div>
+          <div class="detail-item"><strong>单位层级</strong>${escapeHtml(detail.unit_level || "-")}</div>
+          <div class="detail-item"><strong>创建时间</strong>${escapeHtml(formatTime(detail.created_at))}</div>
+          <div class="detail-item"><strong>更新时间</strong>${escapeHtml(formatTime(detail.updated_at))}</div>
+        </div>
+      </div>
+      <div class="detail-block">
+        <h3>手机号</h3>
+        ${(detail.phones || []).length
+          ? `<div class="table-wrap"><table><thead><tr><th>原始号码</th><th>标准手机号</th><th>状态</th><th>主号</th></tr></thead><tbody>${phoneRows}</tbody></table></div>`
+          : emptyState("暂无手机号")}
+      </div>
+      <div class="detail-block">
+        <h3>备注</h3>
+        ${textBlock(detail.remark || "")}
       </div>
     `;
   },

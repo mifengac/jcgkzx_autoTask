@@ -344,12 +344,16 @@ def serialize_contact_phone(phone: OrgContactPhone) -> ContactPhoneRead:
         mobile=phone.mobile,
         is_primary=phone.is_primary,
         status=phone.status,
+        created_at=serialize_dt(phone.created_at),
+        updated_at=serialize_dt(phone.updated_at),
     )
 
 
 def serialize_contact(contact: OrgContact) -> ContactRead:
     return ContactRead(
         id=contact.id,
+        source_system=contact.source_system,
+        source_pk=contact.source_pk,
         xq=contact.xq,
         xqdm=contact.xqdm,
         sspcs=contact.sspcs,
@@ -360,7 +364,10 @@ def serialize_contact(contact: OrgContact) -> ContactRead:
         xm=contact.xm,
         zw=contact.zw,
         rwzt=contact.rwzt,
+        raw_lxdh=contact.raw_lxdh,
         status=contact.status,
         remark=normalize_non_null_text_output(contact.remark),
+        created_at=serialize_dt(contact.created_at),
+        updated_at=serialize_dt(contact.updated_at),
         phones=[serialize_contact_phone(phone) for phone in contact.phones],
     )
