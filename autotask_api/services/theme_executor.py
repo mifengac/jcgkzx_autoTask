@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -31,13 +30,7 @@ from autotask_api.services.task_fields import (
 )
 from autotask_api.services.theme_adapters import get_theme_source_adapter
 from autotask_api.services.theme_filter_engine import derive_hit_keyword, matches_filter_expr
-
-
-SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
-
-
-def now_shanghai() -> datetime:
-    return datetime.now(SHANGHAI_TZ)
+from autotask_api.services.time_utils import now_shanghai, to_shanghai_naive
 
 
 def load_theme_source_for_execution(db: Session, source_id: int) -> ThemeSource:
@@ -144,7 +137,7 @@ def theme_dedup_since(topic: ThemeTopic, current_time: datetime) -> datetime | N
             ),
         )
     since = current_time - timedelta(minutes=topic.dedup_window_minutes)
-    return since.replace(tzinfo=None)
+    return to_shanghai_naive(since)
 
 
 def execute_theme_source_run(

@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from uuid import uuid4
+from autotask_api.services.time_utils import now_shanghai
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -64,13 +65,13 @@ def get_end_of_day() -> str:
     """
     获取当日的结束时间，格式为 'YYYY-MM-DD 23:59:59'
     """
-    return datetime.now().strftime("%Y-%m-%d 23:59:59")
+    return now_shanghai().strftime("%Y-%m-%d 23:59:59")
 
 def get_begin_of_day(days_ago: int = 0) -> str:
     """
     获取指定天数前的开始时间，格式为 'YYYY-MM-DD 00:00:00'
     """
-    date = datetime.now() - timedelta(days=days_ago)
+    date = now_shanghai() - timedelta(days=days_ago)
     return date.strftime("%Y-%m-%d 00:00:00")
 
 class JingqingZhuaqu:
@@ -638,7 +639,7 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         "zq_page_num": "ZQ_PAGE_NUM",
     }
 
-    started_at = datetime.now()
+    started_at = now_shanghai()
     with _temporary_runtime_env(runtime_config, env_mapping):
         config = load_config_from_env()
         scraper = JingqingZhuaqu(config)
@@ -668,7 +669,7 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
                             "written_record_count": 0,
                         },
                         "start_time": started_at.isoformat(),
-                        "end_time": datetime.now().isoformat(),
+                        "end_time": now_shanghai().isoformat(),
                     }
                 ]
 
@@ -694,7 +695,7 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
                         "written_record_count": written_count,
                     },
                     "start_time": started_at.isoformat(),
-                    "end_time": datetime.now().isoformat(),
+                    "end_time": now_shanghai().isoformat(),
                 }
             ]
         finally:

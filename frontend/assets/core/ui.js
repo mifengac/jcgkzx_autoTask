@@ -7,7 +7,35 @@ export function escapeHtml(value) {
 }
 
 export function formatTime(value) {
-  return value ? String(value).replace("T", " ").slice(0, 19) : "-";
+  if (!value) {
+    return "-";
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return "-";
+  }
+
+  // Plain timestamps without offset are assumed to already be in local display time.
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) {
+    return text;
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
+    return text.replace("T", " ").slice(0, 19);
+  }
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(parsed);
 }
 
 export function truncateText(value, max = 72) {

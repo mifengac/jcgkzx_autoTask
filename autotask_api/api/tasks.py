@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from autotask_api.api.serializers import serialize_task
 from autotask_api.database import get_db
-from autotask_api.models import AlertTask, MessageTemplate, ScriptDefinition, ScriptVersion, TaskSchedule
+from autotask_api.models import (
+    AlertTask,
+    MessageTemplate,
+    ScriptDefinition,
+    ScriptVersion,
+    TaskRule,
+    TaskRun,
+    TaskSchedule,
+)
 from autotask_api.schemas import TaskCreate, TaskRead, TaskScheduleUpsert, TaskUpdate
 from autotask_api.services.rule_engine import dump_json_text
 from autotask_api.services.task_fields import normalize_dedup_key_expr_input
@@ -165,3 +173,14 @@ def disable_task(task_id: int, db: Session = Depends(get_db)) -> TaskRead:
     db.commit()
     scheduler_service.reload_jobs()
     return serialize_task(get_task_or_404(db, task_id))
+
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(task_id: int, db: Session = Depends(get_db)) -> None:
+    get_task_or_404(db, task_id)
+    db.execute(delete(TaskSchedule).where(TaskSchedule.task_id == task_id))
+    db.execute(delete(TaskRule).where(TaskRule.task_id == task_id))
+    db.execute(delete(TaskRun).where(TaskRun.task_id == task_id))
+    db.execute(delete(AlertTask).where(AlertTask.id == task_id))
+    db.commit()
+    scheduler_service.reload_jobs()

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
 import json
 from typing import Any
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -27,12 +25,7 @@ from autotask_api.services.rule_engine import (
 )
 from autotask_api.services.script_runner import execute_script
 from autotask_api.services.task_fields import normalize_non_null_text_input
-
-SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
-
-
-def now_shanghai() -> datetime:
-    return datetime.now(SHANGHAI_TZ)
+from autotask_api.services.time_utils import now_shanghai
 
 
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:

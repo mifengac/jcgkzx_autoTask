@@ -23,14 +23,15 @@ from uuid import uuid4
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import execute_values
+from autotask_api.services.time_utils import now_shanghai
 
 def get_end_of_day() -> str:
     """Return today's date formatted as YYYY-MM-DD."""
-    return datetime.now().strftime("%Y-%m-%d")
+    return now_shanghai().strftime("%Y-%m-%d")
 
 def get_begin_of_day(days_ago: int = 0) -> str:
     """Return the date N days ago formatted as YYYY-MM-DD."""
-    date = datetime.now() - timedelta(days=days_ago)
+    date = now_shanghai() - timedelta(days=days_ago)
     return date.strftime("%Y-%m-%d")
 def get_login_cookie(login_url: str, username: str, password: str) -> str:
     """Authenticate and return the Cookie header value."""
@@ -50,11 +51,11 @@ def get_login_cookie(login_url: str, username: str, password: str) -> str:
 
 def get_end_of_day() -> str:
     """Return today's date formatted as YYYY-MM-DD."""
-    return datetime.now().strftime("%Y-%m-%d")
+    return now_shanghai().strftime("%Y-%m-%d")
 
 def get_begin_of_day(days_ago: int = 0) -> str:
     """Return the date N days ago formatted as YYYY-MM-DD."""
-    date = datetime.now() - timedelta(days=days_ago)
+    date = now_shanghai() - timedelta(days=days_ago)
     return date.strftime("%Y-%m-%d")
 
 def iter_dates(start: str, end: str, fmt: str = "%Y-%m-%d"):
@@ -311,7 +312,7 @@ def process_single_task(cfg: Dict[str, Any], task_cfg: Dict[str, Any], conn) -> 
     table_cfg = task_cfg["table"]
     unique_key = table_cfg["unique_key"]
     mode = cfg["mode"]
-    started_at = datetime.now()
+    started_at = now_shanghai()
 
     logging.info(f"start task: {task_name}")
     
@@ -366,7 +367,7 @@ def process_single_task(cfg: Dict[str, Any], task_cfg: Dict[str, Any], conn) -> 
         logging.warning(f"task[{task_name}] no records to write")
         summary["status"] = "success_no_data"
         summary["message_text"] = f"导数任务完成: {task_name}, 无可写入数据"
-        summary["end_time"] = datetime.now().isoformat()
+        summary["end_time"] = now_shanghai().isoformat()
         return summary
 
     # Create the table or missing columns before writing rows.
@@ -385,7 +386,7 @@ def process_single_task(cfg: Dict[str, Any], task_cfg: Dict[str, Any], conn) -> 
             f"导数任务完成: {task_name}, 目标表 {summary['target_table']}, "
             f"写入 {len(final_rows)} 条"
         )
-        summary["end_time"] = datetime.now().isoformat()
+        summary["end_time"] = now_shanghai().isoformat()
         return summary
     except Exception as e:
         logging.exception(f"task[{task_name}] database write failed: {e}")
@@ -395,7 +396,7 @@ def process_single_task(cfg: Dict[str, Any], task_cfg: Dict[str, Any], conn) -> 
         summary["message_text"] = (
             f"导数任务失败: {task_name}, 目标表 {summary['target_table']}, 错误: {e}"
         )
-        summary["end_time"] = datetime.now().isoformat()
+        summary["end_time"] = now_shanghai().isoformat()
         raise RuntimeError(json.dumps(summary, ensure_ascii=False)) from e
 
 
@@ -771,8 +772,8 @@ def build_runtime_config(runtime_config: Optional[Dict[str, Any]] = None) -> Dic
 
         begin_days_ago = _int_setting(runtime_config, "multi_begin_days_ago", 9)
         end_days_ago = _int_setting(runtime_config, "multi_end_days_ago", 0)
-        start_date = (datetime.now() - timedelta(days=begin_days_ago)).strftime("%Y-%m-%d")
-        end_date = (datetime.now() - timedelta(days=end_days_ago)).strftime("%Y-%m-%d")
+        start_date = (now_shanghai() - timedelta(days=begin_days_ago)).strftime("%Y-%m-%d")
+        end_date = (now_shanghai() - timedelta(days=end_days_ago)).strftime("%Y-%m-%d")
 
         template_params = {}
         params_list = duty_task["request"].get("params_list") or []
@@ -864,8 +865,8 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
                             f"导数任务失败: {task_cfg.get('name', 'unnamed_task')}, 错误: {e}"
                         ),
                         "error_message": str(e),
-                        "start_time": datetime.now().isoformat(),
-                        "end_time": datetime.now().isoformat(),
+                        "start_time": now_shanghai().isoformat(),
+                        "end_time": now_shanghai().isoformat(),
                     }
                 logging.error(
                     f"task failed: {task_cfg.get('name', 'unnamed_task')} | error: {e}"

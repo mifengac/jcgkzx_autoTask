@@ -25,6 +25,7 @@ import time
 from typing import Any
 
 import requests
+from autotask_api.services.time_utils import now_shanghai
 
 
 DEFAULT_LOGIN_URL = "http://68.253.2.111/dsjfx/login"
@@ -182,7 +183,7 @@ def load_config_from_runtime_config(runtime_config: dict[str, Any]) -> Config:
 
 
 def build_time_range(hours_back: int) -> tuple[str, str]:
-    now = datetime.now()
+    now = now_shanghai()
     start_time = now - timedelta(hours=hours_back)
     begin_date = start_time.strftime("%Y-%m-%d 00:00:00")
     end_date = now.strftime("%Y-%m-%d 23:59:59")

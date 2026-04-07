@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 import requests
+from autotask_api.services.time_utils import now_shanghai
 
 # 常量定义
 DEFAULT_LOGIN_URL = "http://68.253.2.111/dsjfx/login"
@@ -204,7 +205,7 @@ def setup_logging() -> logging.Logger:
     log_dir = "/app/logs"
     os.makedirs(log_dir, exist_ok=True)
 
-    today = datetime.now().strftime("%Y%m%d")
+    today = now_shanghai().strftime("%Y%m%d")
     log_file = os.path.join(log_dir, f"monitor_wcnr_jq_{today}.log")
 
     logger = logging.getLogger("monitor_wcnr_jq")
@@ -300,7 +301,7 @@ def get_dynamic_date_range() -> Tuple[str, str]:
     beginDate: 当前时间前1天
     返回: (beginDate, endDate) 格式: YYYY-MM-DD HH:MM:SS
     """
-    now = datetime.now()
+    now = now_shanghai()
     end_date = now.strftime("%Y-%m-%d %H:%M:%S")
     begin_date = (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
     return begin_date, end_date

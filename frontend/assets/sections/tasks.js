@@ -106,7 +106,7 @@ function renderTaskList(app) {
               </div>
               ${statusBadge(task.enabled ? "启用" : "停用")}
             </div>
-            <div class="card-meta">
+              <div class="card-meta">
               script_id=${task.script_id} / version_id=${task.script_version_id}<br>
               模板: ${task.message_template_id || "未绑定"}<br>
               调度: ${schedule ? `${schedule.interval_value} ${schedule.interval_unit}` : "未配置"}<br>
@@ -116,6 +116,7 @@ function renderTaskList(app) {
               <button class="small-button" type="button" data-action="task-select-card" data-id="${task.id}">选中</button>
               <button class="small-button" type="button" data-action="task-edit" data-id="${task.id}">编辑</button>
               <button class="small-button ${task.enabled ? "warn" : ""}" type="button" data-action="${task.enabled ? "task-disable" : "task-enable"}" data-id="${task.id}">${task.enabled ? "停用" : "启用"}</button>
+              <button class="small-button danger" type="button" data-action="task-delete" data-id="${task.id}">删除</button>
             </div>
           </article>
         `;
@@ -479,6 +480,34 @@ export const tasksSection = {
           await api(`/api/tasks/${button.dataset.id}/${action}`, jsonRequest("POST", {}));
           app.flash(`任务已${action === "enable" ? "启用" : "停用"}。`);
           await app.reloadTasks();
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-action='task-delete']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const task = app.state.tasks.find((item) => item.id === Number(button.dataset.id));
+        const label = task ? `${task.task_name} (#${task.id})` : `#${button.dataset.id}`;
+        if (!window.confirm(`确认删除任务 ${label} 吗？删除后该任务的调度、规则和运行记录都会一起清除。`)) {
+          return;
+        }
+        try {
+          await api(`/api/tasks/${button.dataset.id}`, { method: "DELETE" });
+          if (app.state.selectedTaskId === Number(button.dataset.id)) {
+            app.state.selectedTaskId = null;
+          }
+          if (app.state.editingTaskId === Number(button.dataset.id)) {
+            app.state.editingTaskId = null;
+          }
+          if (app.state.taskRunPage.taskId === Number(button.dataset.id)) {
+            app.state.taskRunPage.taskId = null;
+          }
+          app.flash("任务已删除。");
+          await app.reloadTasks();
+          await app.refreshTaskRuns();
           app.render();
         } catch (error) {
           app.flash(error.message, true);

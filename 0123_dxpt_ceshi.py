@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 from uuid import uuid4
+from autotask_api.services.time_utils import now_shanghai_naive, to_shanghai_naive
 
 
 KINGBASE_SQL: str = r"""
@@ -226,6 +227,7 @@ def _format_dt(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, datetime):
+        value = to_shanghai_naive(value)
         return value.strftime("%Y-%m-%d %H:%M:%S")
     return str(value)
 
@@ -333,7 +335,7 @@ def get_last_deadtime(conn: Any, *, eid: str, mobile: str) -> Optional[datetime]
         if last_deadtime is None:
             return None
         if isinstance(last_deadtime, datetime):
-            return last_deadtime
+            return to_shanghai_naive(last_deadtime)
         return None
 
 
@@ -499,6 +501,7 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
                         "business_no": business_no,
                         "systemid": systemid,
                         "station_code": station_code,
+                        "移交情况": row.get("12-24-36-48-72小时内移交情况") or "",
                     },
                 }
             )
@@ -568,7 +571,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
 
     eids = compute_eids(targets)
-    now = datetime.now()
+    now = now_shanghai_naive()
     dedup_delta = timedelta(hours=dedup_hours)
 
     try:

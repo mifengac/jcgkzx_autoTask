@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 from types import SimpleNamespace
 import unittest
+from zoneinfo import ZoneInfo
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
@@ -75,7 +76,7 @@ class ThemeAdapterAndExecutorTests(unittest.TestCase):
 
     def test_window_dedup_since(self) -> None:
         topic = SimpleNamespace(dedup_mode="window", dedup_window_minutes=30)
-        current_time = datetime(2026, 4, 4, 10, 0, 0)
+        current_time = datetime(2026, 4, 4, 10, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
         since = theme_dedup_since(topic, current_time)
         self.assertEqual(since, datetime(2026, 4, 4, 9, 30, 0))
 

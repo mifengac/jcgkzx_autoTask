@@ -149,6 +149,9 @@ const app = {
     this.syncRoute();
     await this.renderRoute();
   },
+  async render() {
+    return this.renderRoute();
+  },
   cacheDom() {
     dom.primaryNav = document.querySelector("#primary-nav");
     dom.secondaryNav = document.querySelector("#secondary-nav");
@@ -671,6 +674,13 @@ const app = {
     `;
   },
   renderTaskRunDrawer(detail) {
+    const syncPayload = (detail.results || [])
+      .map((item) => item?.raw_result)
+      .find((raw) => raw && typeof raw === "object" && (
+        Object.prototype.hasOwnProperty.call(raw, "fetched_record_count")
+        || Object.prototype.hasOwnProperty.call(raw, "written_record_count")
+        || Object.prototype.hasOwnProperty.call(raw, "target_table")
+      )) || null;
     const resultRows = (detail.results || []).slice(0, 10).map((item) => `
       <tr>
         <td>${escapeHtml(item.event_key)}</td>
@@ -685,7 +695,25 @@ const app = {
         <td>${statusBadge(item.status)}</td>
       </tr>
     `).join("");
+    const syncSummaryBlock = syncPayload ? `
+      <div class="detail-block">
+        <h3>同步摘要</h3>
+        <div class="detail-grid two">
+          <div class="detail-item"><strong>同步状态</strong>${statusBadge(syncPayload.status || "-")}</div>
+          <div class="detail-item"><strong>目标表</strong><span class="mono">${escapeHtml(syncPayload.target_table || "-")}</span></div>
+          <div class="detail-item"><strong>抓取数量</strong>${escapeHtml(String(syncPayload.fetched_record_count ?? "-"))}</div>
+          <div class="detail-item"><strong>写入数量</strong>${escapeHtml(String(syncPayload.written_record_count ?? "-"))}</div>
+          <div class="detail-item"><strong>开始时间</strong>${escapeHtml(formatTime(syncPayload.start_time))}</div>
+          <div class="detail-item"><strong>结束时间</strong>${escapeHtml(formatTime(syncPayload.end_time))}</div>
+        </div>
+        <div class="detail-item">
+          <strong>同步说明</strong>
+          ${textBlock(syncPayload.message_text || JSON.stringify(syncPayload, null, 2))}
+        </div>
+      </div>
+    ` : "";
     return `
+      ${syncSummaryBlock}
       <div class="detail-block">
         <h3>运行摘要</h3>
         <div class="detail-grid two">
