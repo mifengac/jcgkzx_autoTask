@@ -20,57 +20,57 @@ function renderTemplateList(app) {
   }
 
   const cards = app.state.templates.map((template) => `
-    <article class="card-item ${app.state.editingTemplateId === template.id ? "active" : ""}">
-      <div class="card-head">
+    <article>
+      <div>
         <div>
           <h4>${escapeHtml(template.template_name)}</h4>
-          <div class="card-meta">编码: <span class="mono">${escapeHtml(template.template_code)}</span></div>
+          <div>编码: <span>${escapeHtml(template.template_code)}</span></div>
         </div>
         ${statusBadge(template.enabled ? "启用" : "停用")}
       </div>
-      <div class="card-meta">${escapeHtml(truncateText(template.template_content, 120))}</div>
-      <div class="card-actions">
-        <button class="small-button" type="button" data-action="template-edit" data-id="${template.id}">编辑模板</button>
+      <div>${escapeHtml(truncateText(template.template_content, 120))}</div>
+      <div role="group">
+        <button class="outline" type="button" data-action="template-edit" data-id="${template.id}">编辑模板</button>
       </div>
     </article>
   `).join("");
 
-  return `<div class="card-list">${cards}</div>`;
+  return `<div>${cards}</div>`;
 }
 
 function renderTemplateEditor(app) {
   const template = getEditingTemplate(app);
   const preview = template ? escapeHtml(template.render_example || "") : "{}";
   return `
-    <form id="template-form" class="form-stack">
-      <div class="form-grid two">
-        <div class="field-block">
+    <form id="template-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
+        <div>
           <label for="template_name">模板名称</label>
           <input id="template_name" name="template_name" type="text" value="${escapeHtml(template?.template_name || "")}" required>
         </div>
-        <div class="field-block">
+        <div>
           <label for="template_code">模板编码</label>
           <input id="template_code" name="template_code" type="text" value="${escapeHtml(template?.template_code || "")}" required>
         </div>
       </div>
-      <div class="field-block">
+      <div>
         <label for="template_content">模板内容</label>
         <textarea id="template_content" name="template_content" rows="7" required>${escapeHtml(template?.template_content || "")}</textarea>
       </div>
-      <div class="field-block">
+      <div>
         <label for="render_example">变量预览 JSON</label>
         <textarea id="render_example" name="render_example" rows="5">${preview}</textarea>
       </div>
-      <div class="checkbox-row">
-        <label class="checkbox"><input name="enabled" type="checkbox" ${template?.enabled ?? true ? "checked" : ""}><span>启用模板</span></label>
+      <div>
+        <label><input name="enabled" type="checkbox" ${template?.enabled ?? true ? "checked" : ""}><span>启用模板</span></label>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">${template ? "更新模板" : "创建模板"}</button>
-        <button class="button button-secondary" type="button" data-action="template-reset">新建模板</button>
-        <button class="button button-ghost" type="button" data-action="template-preview">本地预览</button>
+      <div role="group">
+        <button type="submit">${template ? "更新模板" : "创建模板"}</button>
+        <button class="secondary" type="button" data-action="template-reset">新建模板</button>
+        <button class="outline" type="button" data-action="template-preview">本地预览</button>
       </div>
     </form>
-    <div id="template-preview-box" class="detail-block">
+    <div id="template-preview-box">
       <h3>模板预览</h3>
       ${textBlock(template?.template_content || "点击“本地预览”查看渲染效果。")}
     </div>
@@ -92,14 +92,14 @@ export const templatesSection = {
     const tab = app.state.route.secondary;
     if (tab === "editor") {
       return `
-        <div class="content-grid">
+        <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
           ${panel("模板编辑与预览", "编辑并预览。", renderTemplateEditor(app), { span: 12 })}
         </div>
       `;
     }
 
     return `
-      <div class="content-grid">
+      <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("模板总览", "统一管理模板。", renderTemplateList(app), { span: 12 })}
       </div>
     `;

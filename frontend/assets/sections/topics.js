@@ -3,7 +3,7 @@ import { emptyState, escapeHtml, jsonBlock, optionList, panel, statusBadge } fro
 
 function sourceFilter(app) {
   return `
-    <div class="field-block">
+    <div>
       <label for="topic-source-filter">数据源</label>
       <select id="topic-source-filter" data-action="topic-source-filter">
         ${optionList(app.state.themeSources, (item) => `${item.source_name} (${item.source_code})`, app.state.selectedSourceId, "请选择数据源")}
@@ -15,7 +15,7 @@ function sourceFilter(app) {
 function topicSelector(app, id = "topic-select", current = app.state.selectedTopicId) {
   const topics = app.getAvailableTopics();
   return `
-    <div class="field-block">
+    <div>
       <label for="${id}">主题</label>
       <select id="${id}" data-action="topic-select">
         ${optionList(topics, (item) => `${item.theme_name} (${item.theme_code})`, current, "请选择主题")}
@@ -30,24 +30,24 @@ function renderTopicCards(app) {
     return emptyState("当前数据源下还没有主题。");
   }
   return `
-    <div class="card-list">
+    <div>
       ${topics.map((topic) => `
-        <article class="card-item ${app.state.selectedTopicId === topic.id ? "active" : ""}">
-          <div class="card-head">
+        <article>
+          <div>
             <div>
               <h4>${escapeHtml(topic.theme_name)}</h4>
-              <div class="card-meta">编码: <span class="mono">${escapeHtml(topic.theme_code)}</span></div>
+              <div>编码: <span>${escapeHtml(topic.theme_code)}</span></div>
             </div>
             ${statusBadge(topic.enabled ? "启用" : "停用")}
           </div>
-          <div class="card-meta">
+          <div>
             模板: ${topic.message_template_id || "未绑定"}<br>
             去重: ${escapeHtml(topic.dedup_mode)}${topic.dedup_window_minutes ? ` / ${topic.dedup_window_minutes} 分钟` : ""}<br>
             接收规则: ${(topic.receiver_rules || []).length}
           </div>
-          <div class="card-actions">
-            <button class="small-button" type="button" data-action="topic-select-card" data-id="${topic.id}">选中</button>
-            <button class="small-button" type="button" data-action="topic-edit" data-id="${topic.id}">编辑</button>
+          <div role="group">
+            <button class="outline" type="button" data-action="topic-select-card" data-id="${topic.id}">选中</button>
+            <button class="outline" type="button" data-action="topic-edit" data-id="${topic.id}">编辑</button>
           </div>
         </article>
       `).join("")}
@@ -59,11 +59,11 @@ function renderTopicForm(app) {
   const topic = app.state.topicEditorCreating ? null : app.getCurrentTopic();
   const templates = app.state.templates;
   return `
-    <div class="banner">${app.state.topicEditorCreating ? "当前正在新建主题，请先选择数据源，再填写主题表单。" : topic ? `当前主题: ${escapeHtml(topic.theme_name)} / ${escapeHtml(topic.theme_code)}` : "当前未选中主题"}</div>
-    <form id="topic-form" class="form-stack">
-      <div class="form-grid two">
+    <div>${app.state.topicEditorCreating ? "当前正在新建主题，请先选择数据源，再填写主题表单。" : topic ? `当前主题: ${escapeHtml(topic.theme_name)} / ${escapeHtml(topic.theme_code)}` : "当前未选中主题"}</div>
+    <form id="topic-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
         ${sourceFilter(app)}
-        <div class="field-block">
+        <div>
           <label for="message_template_id">短信模板</label>
           <select id="message_template_id" name="message_template_id">
             <option value="">不使用模板</option>
@@ -71,47 +71,47 @@ function renderTopicForm(app) {
           </select>
         </div>
       </div>
-      <div class="form-grid two">
-        <div class="field-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
+        <div>
           <label for="theme_name">主题名称</label>
           <input id="theme_name" name="theme_name" type="text" value="${escapeHtml(topic?.theme_name || "")}" required>
         </div>
-        <div class="field-block">
+        <div>
           <label for="theme_code">主题编码</label>
           <input id="theme_code" name="theme_code" type="text" value="${escapeHtml(topic?.theme_code || "")}" required>
         </div>
       </div>
-      <div class="form-grid three">
-        <div class="field-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));">
+        <div>
           <label for="priority">优先级</label>
           <input id="priority" name="priority" type="number" value="${topic?.priority || 100}">
         </div>
-        <div class="field-block">
+        <div>
           <label for="dedup_mode">去重模式</label>
           <select id="dedup_mode" name="dedup_mode">
             <option value="permanent" ${(topic?.dedup_mode || "permanent") === "permanent" ? "selected" : ""}>永久不重发</option>
             <option value="window" ${topic?.dedup_mode === "window" ? "selected" : ""}>时间窗口去重</option>
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="dedup_window_minutes">时间窗口(分钟)</label>
           <input id="dedup_window_minutes" name="dedup_window_minutes" type="number" min="1" value="${topic?.dedup_window_minutes || ""}">
         </div>
       </div>
-      <div class="field-block">
+      <div>
         <label for="dedup_key_template">去重键模板</label>
         <input id="dedup_key_template" name="dedup_key_template" type="text" value="${escapeHtml(topic?.dedup_key_template || "{event_key}")}">
       </div>
-      <div class="field-block">
+      <div>
         <label for="filter_expr">命中过滤 JSON</label>
         <textarea id="filter_expr" name="filter_expr" rows="12">${escapeHtml(JSON.stringify(topic?.filter_expr || {}, null, 2))}</textarea>
       </div>
-      <div class="checkbox-row">
-        <label class="checkbox"><input name="enabled" type="checkbox" ${topic?.enabled ?? true ? "checked" : ""}><span>启用主题</span></label>
+      <div>
+        <label><input name="enabled" type="checkbox" ${topic?.enabled ?? true ? "checked" : ""}><span>启用主题</span></label>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">${topic ? "更新主题" : "创建主题"}</button>
-        <button class="button button-secondary" type="button" data-action="topic-reset">新建主题</button>
+      <div role="group">
+        <button type="submit">${topic ? "更新主题" : "创建主题"}</button>
+        <button class="secondary" type="button" data-action="topic-reset">新建主题</button>
       </div>
     </form>
   `;
@@ -123,23 +123,23 @@ function renderRuleCards(app) {
     return emptyState("当前主题暂无接收规则。");
   }
   return `
-    <div class="card-list">
+    <div>
       ${topic.receiver_rules.map((rule) => `
-        <article class="card-item ${app.state.editingTopicRuleId === rule.id ? "active" : ""}">
-          <div class="card-head">
+        <article>
+          <div>
             <div>
               <h4>${escapeHtml(rule.rule_name)}</h4>
-              <div class="card-meta">类型: ${escapeHtml(rule.rule_type)}</div>
+              <div>类型: ${escapeHtml(rule.rule_type)}</div>
             </div>
             ${statusBadge(rule.enabled ? "启用" : "停用")}
           </div>
-          <div class="card-meta">
+          <div>
             匹配字段: ${escapeHtml(rule.source_field || "-")} → ${escapeHtml(rule.target_match_field)}<br>
             固定接收人: ${escapeHtml((rule.fixed_receivers || []).join(", ") || "-")}
           </div>
-          <div class="card-actions">
-            <button class="small-button" type="button" data-action="topic-rule-edit" data-id="${rule.id}">编辑规则</button>
-            <button class="small-button danger" type="button" data-action="topic-rule-delete" data-id="${rule.id}">删除规则</button>
+          <div role="group">
+            <button class="outline" type="button" data-action="topic-rule-edit" data-id="${rule.id}">编辑规则</button>
+            <button class="outline" type="button" data-action="topic-rule-delete" data-id="${rule.id}">删除规则</button>
           </div>
         </article>
       `).join("")}
@@ -151,18 +151,18 @@ function renderRuleForm(app) {
   const topic = app.getCurrentTopic();
   const rule = topic?.receiver_rules?.find((item) => item.id === app.state.editingTopicRuleId) || null;
   return `
-    <div class="banner">${topic ? `当前主题: ${escapeHtml(topic.theme_name)}` : "请先选中主题，再配置接收规则。"}</div>
-    <form id="topic-rule-form" class="form-stack">
-      <div class="form-grid two">
+    <div>${topic ? `当前主题: ${escapeHtml(topic.theme_name)}` : "请先选中主题，再配置接收规则。"}</div>
+    <form id="topic-rule-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
         ${sourceFilter(app)}
         ${topicSelector(app)}
       </div>
-      <div class="form-grid two">
-        <div class="field-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
+        <div>
           <label for="rule_name">规则名称</label>
           <input id="rule_name" name="rule_name" type="text" value="${escapeHtml(rule?.rule_name || "")}" required>
         </div>
-        <div class="field-block">
+        <div>
           <label for="rule_type">规则类型</label>
           <select id="rule_type" name="rule_type">
             <option value="fixed_receivers" ${(rule?.rule_type || "fixed_receivers") === "fixed_receivers" ? "selected" : ""}>固定接收人</option>
@@ -171,43 +171,43 @@ function renderRuleForm(app) {
           </select>
         </div>
       </div>
-      <div class="form-grid three">
-        <div class="field-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));">
+        <div>
           <label for="source_field">源字段</label>
           <input id="source_field" name="source_field" type="text" value="${escapeHtml(rule?.source_field || "")}">
         </div>
-        <div class="field-block">
+        <div>
           <label for="target_match_field">目标字段</label>
           <select id="target_match_field" name="target_match_field">
             ${["sspcsdm", "xqdm", "county_code", "city_code"].map((item) => `<option value="${item}" ${(rule?.target_match_field || "sspcsdm") === item ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="priority">优先级</label>
           <input id="priority" name="priority" type="number" value="${rule?.priority || 100}">
         </div>
       </div>
-      <div class="field-block">
+      <div>
         <label for="target_mobile_field">手机号字段</label>
         <input id="target_mobile_field" name="target_mobile_field" type="text" value="${escapeHtml(rule?.target_mobile_field || "mobile")}">
       </div>
-      <div class="field-block">
+      <div>
         <label for="fixed_receivers">固定手机号</label>
         <textarea id="fixed_receivers" name="fixed_receivers" rows="4">${escapeHtml((rule?.fixed_receivers || []).join("\n"))}</textarea>
       </div>
-      <div class="field-block">
+      <div>
         <label for="filter_json">联系人过滤 JSON</label>
         <textarea id="filter_json" name="filter_json" rows="4">${escapeHtml(JSON.stringify(rule?.filter_json || {}, null, 2))}</textarea>
       </div>
-      <div class="checkbox-row">
-        <label class="checkbox"><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
-        <label class="checkbox"><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
-        <label class="checkbox"><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
-        <label class="checkbox"><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
+      <div>
+        <label><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
+        <label><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
+        <label><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
+        <label><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">${rule ? "更新规则" : "创建规则"}</button>
-        <button class="button button-secondary" type="button" data-action="topic-rule-reset">新建规则</button>
+      <div role="group">
+        <button type="submit">${rule ? "更新规则" : "创建规则"}</button>
+        <button class="secondary" type="button" data-action="topic-rule-reset">新建规则</button>
       </div>
     </form>
   `;
@@ -232,18 +232,18 @@ export const topicsSection = {
   render(app) {
     const tab = app.state.route.secondary;
     if (tab === "editor") {
-      return `<div class="content-grid">
+      return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("主题表单", "编辑主题参数。", renderTopicForm(app), { span: 8 })}
         ${panel("当前主题列表", "先看当前主题。", renderTopicCards(app), { span: 4 })}
       </div>`;
     }
     if (tab === "rules") {
-      return `<div class="content-grid">
+      return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("接收规则表单", "编辑当前规则。", renderRuleForm(app), { span: 7 })}
         ${panel("接收规则列表", "只看当前主题。", renderRuleCards(app), { span: 5 })}
       </div>`;
     }
-    return `<div class="content-grid">
+    return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
       ${panel("主题筛选", "先选数据源。", sourceFilter(app), { span: 4 })}
       ${panel("主题列表", "默认展示当前源。", renderTopicCards(app), { span: 8 })}
     </div>`;

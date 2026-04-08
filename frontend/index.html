@@ -1,56 +1,66 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>基础管控中心任务与主题监测平台</title>
-  <link rel="stylesheet" href="/assets/app.css">
+  <title>基础管控中心短信监测配置平台</title>
+  <link rel="stylesheet" href="/assets/pico.min.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">JCGKZX AUTOTASK</p>
-        <h1>基础管控中心任务与主题监测平台</h1>
+  <main class="container-fluid">
+    <article>
+      <header>
+        <p><small>JCGKZX AUTOTASK</small></p>
+        <h1>基础管控中心短信监测配置平台</h1>
         <p>统一查看任务、主题、短信与运行记录。</p>
-      </div>
-      <div class="hero-side">
-        <div id="health-pill" class="health-pill">检查中</div>
-        <button id="refresh-all" class="button button-secondary" type="button">刷新全部</button>
-      </div>
-    </header>
+      </header>
+      <nav aria-label="global actions">
+        <ul>
+          <li><strong id="health-pill">检查中</strong></li>
+        </ul>
+        <ul>
+          <li><button id="refresh-all" class="secondary" type="button">刷新全部</button></li>
+          <li><a href="/logout" role="button" class="outline">退出登录</a></li>
+        </ul>
+      </nav>
+    </article>
 
-    <nav id="primary-nav" class="primary-nav" aria-label="一级导航"></nav>
+    <article>
+      <nav id="primary-nav" aria-label="一级导航"></nav>
+    </article>
 
-    <div class="workspace">
-      <aside class="secondary-pane">
-        <div class="pane-header">
-          <span class="pane-label">模块导航</span>
-          <strong id="secondary-title">概览</strong>
-        </div>
-        <nav id="secondary-nav" class="secondary-nav" aria-label="二级导航"></nav>
+    <div class="grid" style="align-items:start;">
+      <aside>
+        <article>
+          <header>
+            <p><small>模块导航</small></p>
+            <strong id="secondary-title">总览</strong>
+          </header>
+          <nav id="secondary-nav" aria-label="二级导航"></nav>
+        </article>
       </aside>
 
-      <main class="content-pane">
-        <div id="section-header" class="section-header"></div>
-        <div id="content-area" class="content-area"></div>
-      </main>
+      <section>
+        <article id="section-header"></article>
+        <div id="content-area"></div>
+      </section>
     </div>
-  </div>
 
-  <div id="flash" class="flash hidden" role="status" aria-live="polite"></div>
+    <section id="flash" hidden role="status" aria-live="polite"></section>
+  </main>
 
-  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
-  <aside id="detail-drawer" class="detail-drawer hidden" aria-hidden="true">
-    <div class="drawer-header">
-      <div>
-        <p id="drawer-eyebrow" class="drawer-eyebrow">详情</p>
-        <h2 id="drawer-title">详情面板</h2>
-      </div>
-      <button id="drawer-close" class="icon-button" type="button" aria-label="关闭详情">×</button>
-    </div>
-    <div id="drawer-body" class="drawer-body"></div>
-  </aside>
+  <dialog id="detail-drawer">
+    <article>
+      <header>
+        <div>
+          <p><small id="drawer-eyebrow">详情</small></p>
+          <h2 id="drawer-title">详情面板</h2>
+        </div>
+        <button id="drawer-close" type="button" class="secondary" aria-label="关闭详情">Close</button>
+      </header>
+      <div id="drawer-body"></div>
+    </article>
+  </dialog>
 
   <script type="module" src="/assets/app.js"></script>
 </body>

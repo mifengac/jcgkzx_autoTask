@@ -3,21 +3,21 @@ import { formatTime, optionList, panel, statusBadge, table } from "../core/ui.js
 function renderThemeRunFilters(app) {
   const filters = app.state.themeRunPage.filters;
   return `
-    <form id="theme-run-filter-form" class="form-stack">
-      <div class="filter-grid">
-        <div class="field-block">
+    <form id="theme-run-filter-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));">
+        <div>
           <label for="theme_run_source_id">数据源</label>
           <select id="theme_run_source_id" name="source_id">
             ${optionList(app.state.themeSources, (item) => `${item.source_name} (${item.source_code})`, filters.source_id, "全部数据源")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="theme_run_topic_id">主题</label>
           <select id="theme_run_topic_id" name="topic_id">
             ${optionList(app.getTopicsForSource(filters.source_id), (item) => `${item.theme_name} (${item.theme_code})`, filters.topic_id, "全部主题")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="theme_run_status">状态</label>
           <select id="theme_run_status" name="status">
             <option value="">全部状态</option>
@@ -25,9 +25,9 @@ function renderThemeRunFilters(app) {
           </select>
         </div>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">应用筛选</button>
-        <button class="button button-secondary" type="button" data-action="theme-runs-reset">重置筛选</button>
+      <div role="group">
+        <button type="submit">应用筛选</button>
+        <button class="secondary" type="button" data-action="theme-runs-reset">重置筛选</button>
       </div>
     </form>
   `;
@@ -36,32 +36,32 @@ function renderThemeRunFilters(app) {
 function renderThemeRunTable(app) {
   const page = app.state.themeRunPage;
   const rows = page.items.map((run) => [
-    `<span class="mono">${run.run_no}</span>`,
+    `<span>${run.run_no}</span>`,
     `数据源 ${run.source_id}`,
     statusBadge(run.status),
     String(run.fetched_count),
     String(run.matched_count),
     String(run.send_count),
     formatTime(run.finished_at || run.started_at),
-    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
+    `<div role="group"><button class="outline" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
   ]);
   return table(["运行号", "范围", "状态", "抓取", "命中", "发送", "时间", "操作"], rows);
 }
 
 function renderTaskRunFilters(app) {
   return `
-    <form id="task-run-filter-form" class="form-stack">
-      <div class="filter-grid">
-        <div class="field-block">
+    <form id="task-run-filter-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));">
+        <div>
           <label for="task_run_task_id">自定义任务</label>
           <select id="task_run_task_id" name="task_id">
             ${optionList(app.state.tasks, (item) => `${item.task_name} (#${item.id})`, app.state.taskRunPage.taskId, "全部任务")}
           </select>
         </div>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">应用筛选</button>
-        <button class="button button-secondary" type="button" data-action="task-runs-reset">重置筛选</button>
+      <div role="group">
+        <button type="submit">应用筛选</button>
+        <button class="secondary" type="button" data-action="task-runs-reset">重置筛选</button>
       </div>
     </form>
   `;
@@ -70,14 +70,14 @@ function renderTaskRunFilters(app) {
 function renderTaskRunTable(app) {
   const items = app.state.taskRunPage.items;
   const rows = items.map((run) => [
-    `<span class="mono">${run.run_no}</span>`,
+    `<span>${run.run_no}</span>`,
     `任务 ${run.task_id}`,
     statusBadge(run.status),
     String(run.result_count),
     String(run.hit_count),
     String(run.send_count),
     formatTime(run.finished_at || run.started_at),
-    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">详情</button></div>`,
+    `<div role="group"><button class="outline" type="button" data-action="open-detail" data-type="task-run" data-id="${run.id}">详情</button></div>`,
   ]);
   return table(["运行号", "范围", "状态", "结果", "命中", "发送", "时间", "操作"], rows);
 }
@@ -102,7 +102,7 @@ export const runsSection = {
   render(app) {
     if (app.state.route.secondary === "task") {
       return `
-        <div class="content-grid">
+        <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
           ${panel("运行筛选", "先筛任务。", renderTaskRunFilters(app), { span: 4 })}
           ${panel("自定义任务运行", "默认看最近。", renderTaskRunTable(app), { span: 8 })}
         </div>
@@ -110,7 +110,7 @@ export const runsSection = {
     }
 
     return `
-      <div class="content-grid">
+      <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("运行筛选", "先筛来源。", renderThemeRunFilters(app), { span: 4 })}
         ${panel("数据源运行历史", "抽屉看详情。", renderThemeRunTable(app), { span: 8 })}
       </div>

@@ -2,7 +2,7 @@ import { formatTime, metricCard, panel, statusBadge, table, truncateText } from 
 
 function renderRecentRunRows(items, type) {
   return items.map((item) => [
-    `<span class="mono">${item.run_no}</span>`,
+    `<span>${item.run_no}</span>`,
     type === "theme" ? `数据源 ${item.source_id}` : `任务 ${item.task_id}`,
     statusBadge(item.status),
     String(type === "theme" ? item.matched_count : item.hit_count),
@@ -19,7 +19,7 @@ function renderFailureRows(items) {
     item.mobile,
     statusBadge(item.status),
     truncateText(item.error_message || item.content_preview, 64),
-    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
+    `<div role="group"><button class="outline" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
   ]);
 }
 
@@ -38,15 +38,15 @@ export const overviewSection = {
     const recentTaskRuns = app.state.overview.taskRuns || [];
 
     return `
-      <div class="content-grid">
+      <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("今日运行概览", "先看总量。",
-          `<div class="stat-grid">
+          `<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));">
             ${metricCard("数据源", stats.sourceCount)}
             ${metricCard("主题", stats.topicCount)}
             ${metricCard("短信模板", stats.templateCount)}
             ${metricCard("自定义任务", stats.taskCount)}
           </div>
-          <div class="stat-grid" style="margin-top:12px;">
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));" style="margin-top:12px;">
             ${metricCard("近期开奖源运行", stats.themeRunCount)}
             ${metricCard("近期开奖任务运行", stats.taskRunCount)}
             ${metricCard("失败短信", stats.failedSmsCount)}
@@ -62,7 +62,7 @@ export const overviewSection = {
               ["发送时间", "数据源", "主题", "手机号", "状态", "原因 / 内容", "操作"],
               renderFailureRows(failedLogs)
             )
-            : `<div class="empty-state">最近没有失败短信，当前状态比较稳定。</div>`,
+            : `<div>最近没有失败短信，当前状态比较稳定。</div>`,
           { span: 7 }
         )}
         ${panel(
@@ -73,7 +73,7 @@ export const overviewSection = {
               ["运行号", "范围", "状态", "命中", "发送", "结束时间"],
               renderRecentRunRows(recentThemeRuns, "theme")
             )
-            : `<div class="empty-state">暂无数据源运行记录。</div>`,
+            : `<div>暂无数据源运行记录。</div>`,
           { span: 5 }
         )}
         ${panel(
@@ -84,7 +84,7 @@ export const overviewSection = {
               ["运行号", "范围", "状态", "命中", "发送", "结束时间"],
               renderRecentRunRows(recentTaskRuns, "task")
             )
-            : `<div class="empty-state">暂无自定义任务运行记录。</div>`,
+            : `<div>暂无自定义任务运行记录。</div>`,
           { span: 12 }
         )}
       </div>

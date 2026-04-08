@@ -181,7 +181,6 @@ const app = {
     dom.flash = document.querySelector("#flash");
     dom.healthPill = document.querySelector("#health-pill");
     dom.drawer = document.querySelector("#detail-drawer");
-    dom.drawerBackdrop = document.querySelector("#drawer-backdrop");
     dom.drawerTitle = document.querySelector("#drawer-title");
     dom.drawerEyebrow = document.querySelector("#drawer-eyebrow");
     dom.drawerBody = document.querySelector("#drawer-body");
@@ -193,7 +192,10 @@ const app = {
       this.flash("全部数据已刷新。");
     });
     document.querySelector("#drawer-close").addEventListener("click", () => this.closeDrawer());
-    dom.drawerBackdrop.addEventListener("click", () => this.closeDrawer());
+    dom.drawer.addEventListener("close", () => {
+      state.drawer.open = false;
+      state.drawer.bodyHtml = "";
+    });
     window.addEventListener("hashchange", async () => {
       this.syncRoute();
       await this.renderRoute();
@@ -458,14 +460,19 @@ const app = {
   },
   renderShell() {
     dom.healthPill.textContent = state.healthOk === null ? "检查中" : state.healthOk ? "服务正常" : "服务异常";
-    dom.healthPill.className = `health-pill ${state.healthOk === null ? "" : state.healthOk ? "ok" : "bad"}`;
+    dom.healthPill.dataset.state = state.healthOk === null ? "checking" : state.healthOk ? "ok" : "bad";
 
-    dom.primaryNav.innerHTML = sections.map((section) => `
-      <button class="nav-chip ${state.route.primary === section.key ? "active" : ""}" type="button" data-primary="${section.key}">
-        <strong>${escapeHtml(section.label)}</strong>
-        <span>${escapeHtml(section.description)}</span>
-      </button>
-    `).join("");
+    dom.primaryNav.innerHTML = `
+      <ul>
+        ${sections.map((section) => `
+          <li>
+            <button class="${state.route.primary === section.key ? "contrast" : "secondary"}" type="button" data-primary="${section.key}">
+              ${escapeHtml(section.label)}
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    `;
     dom.primaryNav.querySelectorAll("[data-primary]").forEach((button) => {
       button.addEventListener("click", () => {
         this.navigate(button.dataset.primary, getDefaultTab(button.dataset.primary));
@@ -474,12 +481,17 @@ const app = {
 
     const section = sectionMap[state.route.primary];
     dom.secondaryTitle.textContent = section.label;
-    dom.secondaryNav.innerHTML = section.tabs.map((tab) => `
-      <button class="subnav-link ${state.route.secondary === tab.key ? "active" : ""}" type="button" data-secondary="${tab.key}">
-        <strong>${escapeHtml(tab.label)}</strong>
-        <span>${escapeHtml(tab.hint)}</span>
-      </button>
-    `).join("");
+    dom.secondaryNav.innerHTML = `
+      <ul>
+        ${section.tabs.map((tab) => `
+          <li>
+            <button class="${state.route.secondary === tab.key ? "contrast" : "outline"}" type="button" data-secondary="${tab.key}">
+              ${escapeHtml(tab.label)}
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    `;
     dom.secondaryNav.querySelectorAll("[data-secondary]").forEach((button) => {
       button.addEventListener("click", () => {
         this.navigate(state.route.primary, button.dataset.secondary);
@@ -488,20 +500,20 @@ const app = {
 
     const metaPills = [];
     if (state.selectedSourceId && state.route.primary !== "sources") {
-      metaPills.push(`<span class="meta-pill">当前数据源: ${escapeHtml(this.getCurrentSource()?.source_name || `#${state.selectedSourceId}`)}</span>`);
+      metaPills.push(`<li><small>当前数据源: ${escapeHtml(this.getCurrentSource()?.source_name || `#${state.selectedSourceId}`)}</small></li>`);
     }
     if (state.selectedTopicId && state.route.primary !== "topics") {
-      metaPills.push(`<span class="meta-pill">当前主题: ${escapeHtml(this.getCurrentTopic()?.theme_name || `#${state.selectedTopicId}`)}</span>`);
+      metaPills.push(`<li><small>当前主题: ${escapeHtml(this.getCurrentTopic()?.theme_name || `#${state.selectedTopicId}`)}</small></li>`);
     }
     if (state.selectedTaskId && state.route.primary !== "tasks") {
-      metaPills.push(`<span class="meta-pill">当前任务: ${escapeHtml(this.getCurrentTask()?.task_name || `#${state.selectedTaskId}`)}</span>`);
+      metaPills.push(`<li><small>当前任务: ${escapeHtml(this.getCurrentTask()?.task_name || `#${state.selectedTaskId}`)}</small></li>`);
     }
     dom.sectionHeader.innerHTML = `
-      <div>
+      <header>
         <h2>${escapeHtml(section.label)}</h2>
         <p>${escapeHtml(section.description)}</p>
-      </div>
-      <div class="meta">${metaPills.join("")}</div>
+      </header>
+      ${metaPills.length ? `<nav aria-label="context"><ul>${metaPills.join("")}</ul></nav>` : ""}
     `;
   },
   async renderRoute() {
@@ -519,14 +531,21 @@ const app = {
   },
   flash(message, isError = false) {
     if (!message) {
-      dom.flash.classList.add("hidden");
+      dom.flash.hidden = true;
+      dom.flash.innerHTML = "";
       return;
     }
-    dom.flash.textContent = String(message);
-    dom.flash.className = `flash ${isError ? "error" : ""}`;
+    dom.flash.hidden = false;
+    dom.flash.innerHTML = `
+      <article ${isError ? 'aria-invalid="true"' : ''}>
+        <strong>${isError ? "错误" : "提示"}</strong>
+        <p>${escapeHtml(String(message))}</p>
+      </article>
+    `;
     window.clearTimeout(this.flashTimer);
     this.flashTimer = window.setTimeout(() => {
-      dom.flash.classList.add("hidden");
+      dom.flash.hidden = true;
+      dom.flash.innerHTML = "";
     }, 4200);
   },
   closeDrawer() {
@@ -538,7 +557,7 @@ const app = {
     state.drawer.open = true;
     state.drawer.title = "加载中...";
     state.drawer.eyebrow = "详情";
-    state.drawer.bodyHtml = '<div class="detail-block">正在加载详情...</div>';
+    state.drawer.bodyHtml = '<div>正在加载详情...</div>';
     this.renderDrawer();
     try {
       if (type === "theme-result") {
@@ -571,24 +590,24 @@ const app = {
     } catch (error) {
       state.drawer.title = "详情加载失败";
       state.drawer.eyebrow = "详情";
-      state.drawer.bodyHtml = `<div class="detail-block">${escapeHtml(error.message)}</div>`;
+      state.drawer.bodyHtml = `<div>${escapeHtml(error.message)}</div>`;
       this.renderDrawer();
       this.flash(error.message, true);
     }
   },
   renderDrawer() {
     if (!state.drawer.open) {
-      dom.drawer.classList.add("hidden");
-      dom.drawerBackdrop.classList.add("hidden");
-      dom.drawer.setAttribute("aria-hidden", "true");
+      if (dom.drawer.open) {
+        dom.drawer.close();
+      }
       return;
     }
     dom.drawerTitle.textContent = state.drawer.title;
     dom.drawerEyebrow.textContent = state.drawer.eyebrow;
     dom.drawerBody.innerHTML = state.drawer.bodyHtml;
-    dom.drawer.classList.remove("hidden");
-    dom.drawerBackdrop.classList.remove("hidden");
-    dom.drawer.setAttribute("aria-hidden", "false");
+    if (!dom.drawer.open) {
+      dom.drawer.showModal();
+    }
     this.bindDrawerActions();
   },
   bindDrawerActions() {
@@ -618,9 +637,9 @@ const app = {
       return emptyState("暂无信息。");
     }
     return `
-      <div class="detail-grid ${cols}">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
         ${visibleItems.map((item) => `
-          <div class="detail-item">
+          <div>
             <strong>${escapeHtml(item.label)}</strong>
             ${item.value}
           </div>
@@ -630,23 +649,23 @@ const app = {
   },
   renderDrawerCard({ title, status, meta = [], summary = "", actionHtml = "" }) {
     return `
-      <article class="drawer-card">
-        <div class="drawer-card-header">
-          <h4 class="drawer-card-title">${title}</h4>
+      <article>
+        <div>
+          <h4>${title}</h4>
           ${status || ""}
         </div>
         ${meta.length ? `
-          <div class="drawer-card-meta">
+          <div>
             ${meta.map((item) => `
-              <div class="drawer-card-meta-item">
+              <div>
                 <strong>${escapeHtml(item.label)}</strong>
                 ${item.value}
               </div>
             `).join("")}
           </div>
         ` : ""}
-        ${summary ? `<div class="drawer-card-summary">${summary}</div>` : ""}
-        ${actionHtml ? `<div class="drawer-card-footer">${actionHtml}</div>` : ""}
+        ${summary ? `<div>${summary}</div>` : ""}
+        ${actionHtml ? `<div>${actionHtml}</div>` : ""}
       </article>
     `;
   },
@@ -654,25 +673,25 @@ const app = {
     if (!items.length) {
       return emptyState(emptyText);
     }
-    return `<div class="drawer-card-list">${items.map((item) => renderer(item)).join("")}</div>`;
+    return `<div>${items.map((item) => renderer(item)).join("")}</div>`;
   },
   renderThemeResultDrawer(detail) {
     const receiverText = escapeHtml((detail.receiver_mobiles || []).join(", ") || "-");
     const matchedRules = escapeHtml((detail.matched_rule_ids || []).join(", ") || "无");
     return `
-      <div class="detail-grid two">
-        <div class="detail-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+        <div>
           <h3>基本信息</h3>
           ${this.renderDetailFacts([
             { label: "数据源", value: escapeHtml(detail.source_name || "-") },
             { label: "主题", value: escapeHtml(detail.topic_name || "-") },
             { label: "警情编号", value: escapeHtml(detail.case_no || detail.event_key || "-") },
             { label: "发送状态", value: statusBadge(detail.send_status) },
-            { label: "Oracle EID", value: `<span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span>` },
-            { label: "事件键", value: `<span class="mono">${escapeHtml(detail.event_key || "-")}</span>` },
+            { label: "Oracle EID", value: `<span>${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "事件键", value: `<span>${escapeHtml(detail.event_key || "-")}</span>` },
           ])}
         </div>
-        <div class="detail-block">
+        <div>
           <h3>接收信息</h3>
           ${this.renderDetailFacts([
             { label: "接收人", value: receiverText },
@@ -682,12 +701,12 @@ const app = {
           ])}
         </div>
       </div>
-      <div class="detail-grid two">
-        <div class="detail-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+        <div>
           <h3>短信内容</h3>
           ${textBlock(detail.rendered_message || "")}
         </div>
-        <div class="detail-block">
+        <div>
           <h3>原始数据</h3>
           ${jsonBlock(detail.raw_result)}
         </div>
@@ -696,19 +715,19 @@ const app = {
   },
   renderThemeSmsLogDrawer(detail) {
     return `
-      <div class="detail-grid two">
-        <div class="detail-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+        <div>
           <h3>发送概要</h3>
           ${this.renderDetailFacts([
             { label: "数据源", value: escapeHtml(detail.source_name || "-") },
             { label: "主题", value: escapeHtml(detail.topic_name || "-") },
             { label: "手机号", value: escapeHtml(detail.mobile || "-") },
             { label: "发送状态", value: statusBadge(detail.status) },
-            { label: "Oracle EID", value: `<span class="mono">${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "Oracle EID", value: `<span>${escapeHtml(detail.oracle_eid || "-")}</span>` },
             { label: "命中状态", value: statusBadge(detail.result_send_status || "-") },
           ])}
         </div>
-        <div class="detail-block">
+        <div>
           <h3>失败与回执</h3>
           ${this.renderDetailFacts([
             { label: "失败原因", value: escapeHtml(detail.error_message || "-") },
@@ -718,18 +737,18 @@ const app = {
           ])}
         </div>
       </div>
-      <div class="detail-grid two">
-        <div class="detail-block">
-          <div class="panel-header" style="margin-bottom:10px;">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+        <div>
+          <div style="margin-bottom:10px;">
             <div><h3>短信内容</h3><p>支持复制。</p></div>
-            <div><button class="small-button" type="button" data-action="copy-text" data-target="#sms-log-content">复制</button></div>
+            <div><button class="outline" type="button" data-action="copy-text" data-target="#sms-log-content">复制</button></div>
           </div>
-          <pre id="sms-log-content" class="text-block">${escapeHtml(detail.content || "")}</pre>
+          <pre id="sms-log-content">${escapeHtml(detail.content || "")}</pre>
         </div>
-        <div class="detail-block">
-          <div class="panel-header" style="margin-bottom:10px;">
+        <div>
+          <div style="margin-bottom:10px;">
             <div><h3>关联命中</h3><p>可继续追溯。</p></div>
-            ${detail.topic_result_id ? `<div><button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">命中详情</button></div>` : ""}
+            ${detail.topic_result_id ? `<div><button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">命中详情</button></div>` : ""}
           </div>
           ${jsonBlock(detail.raw_result)}
         </div>
@@ -745,12 +764,12 @@ const app = {
         status: statusBadge(item.send_status),
         meta: [
           { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
-          { label: "Oracle EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "Oracle EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
           { label: "规则", value: escapeHtml((item.matched_rule_ids || []).join(", ") || "无") },
         ],
         summary: escapeHtml(truncateText(item.rendered_message || item.content_preview || item.event_key || "无摘要", 160)),
         actionHtml: item.id
-          ? `<button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">详情</button>`
+          ? `<button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">详情</button>`
           : "",
       })
     );
@@ -762,20 +781,20 @@ const app = {
         status: statusBadge(item.status),
         meta: [
           { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
-          { label: "Oracle EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "Oracle EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
           { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
         ],
         summary: escapeHtml(truncateText(item.error_message || item.content_preview || item.content || "无内容", 160)),
         actionHtml: item.id
-          ? `<button class="small-button" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button>`
+          ? `<button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button>`
           : "",
       })
     );
     return `
-      <div class="detail-block">
+      <div>
         <h3>运行摘要</h3>
         ${this.renderDetailFacts([
-          { label: "运行号", value: `<span class="mono">${escapeHtml(detail.run_no)}</span>` },
+          { label: "运行号", value: `<span>${escapeHtml(detail.run_no)}</span>` },
           { label: "状态", value: statusBadge(detail.status) },
           { label: "抓取数量", value: escapeHtml(String(detail.fetched_count ?? "-")) },
           { label: "命中数量", value: escapeHtml(String(detail.matched_count ?? "-")) },
@@ -783,11 +802,11 @@ const app = {
           { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
         ])}
       </div>
-      <div class="detail-block">
+      <div>
         <h3>命中结果（前 10 条）</h3>
         ${resultCards}
       </div>
-      <div class="detail-block">
+      <div>
         <h3>短信日志（前 10 条）</h3>
         ${smsCards}
       </div>
@@ -809,7 +828,7 @@ const app = {
         status: statusBadge(item.send_status),
         meta: [
           { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
-          { label: "事件键", value: `<span class="mono">${escapeHtml(item.event_key || "-")}</span>` },
+          { label: "事件键", value: `<span>${escapeHtml(item.event_key || "-")}</span>` },
           { label: "结果状态", value: escapeHtml(item.status || "-") },
         ],
         summary: escapeHtml(truncateText(
@@ -830,23 +849,23 @@ const app = {
         meta: [
           { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
           { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
-          { label: "EID", value: `<span class="mono">${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
         ],
         summary: escapeHtml(truncateText(item.error_message || item.content || "无内容", 160)),
       })
     );
     const syncSummaryBlock = syncPayload ? `
-      <div class="detail-block">
+      <div>
         <h3>同步摘要</h3>
         ${this.renderDetailFacts([
           { label: "同步状态", value: statusBadge(syncPayload.status || "-") },
-          { label: "目标表", value: `<span class="mono">${escapeHtml(syncPayload.target_table || "-")}</span>` },
+          { label: "目标表", value: `<span>${escapeHtml(syncPayload.target_table || "-")}</span>` },
           { label: "抓取数量", value: escapeHtml(String(syncPayload.fetched_record_count ?? "-")) },
           { label: "写入数量", value: escapeHtml(String(syncPayload.written_record_count ?? "-")) },
           { label: "开始时间", value: escapeHtml(formatTime(syncPayload.start_time)) },
           { label: "结束时间", value: escapeHtml(formatTime(syncPayload.end_time)) },
         ])}
-        <div class="detail-item" style="margin-top:10px;">
+        <div style="margin-top:10px;">
           <strong>同步说明</strong>
           ${textBlock(syncPayload.message_text || JSON.stringify(syncPayload, null, 2))}
         </div>
@@ -854,10 +873,10 @@ const app = {
     ` : "";
     return `
       ${syncSummaryBlock}
-      <div class="detail-block">
+      <div>
         <h3>运行摘要</h3>
         ${this.renderDetailFacts([
-          { label: "运行号", value: `<span class="mono">${escapeHtml(detail.run_no)}</span>` },
+          { label: "运行号", value: `<span>${escapeHtml(detail.run_no)}</span>` },
           { label: "状态", value: statusBadge(detail.status) },
           { label: "结果数量", value: escapeHtml(String(detail.result_count ?? "-")) },
           { label: "命中数量", value: escapeHtml(String(detail.hit_count ?? "-")) },
@@ -865,11 +884,11 @@ const app = {
           { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
         ])}
       </div>
-      <div class="detail-block">
+      <div>
         <h3>命中结果（前 10 条）</h3>
         ${resultCards}
       </div>
-      <div class="detail-block">
+      <div>
         <h3>短信日志（前 10 条）</h3>
         ${smsCards}
       </div>
@@ -892,30 +911,30 @@ const app = {
       `).join("")
       : "";
     return `
-      <div class="detail-block">
+      <div>
         <h3>联系人概况</h3>
-        <div class="detail-grid two">
-          <div class="detail-item"><strong>姓名</strong>${escapeHtml(detail.xm || "-")}</div>
-          <div class="detail-item"><strong>职务</strong>${escapeHtml(detail.zw || "-")}</div>
-          <div class="detail-item"><strong>派出所</strong>${escapeHtml(detail.sspcs || "-")}</div>
-          <div class="detail-item"><strong>派出所代码</strong><span class="mono">${escapeHtml(detail.sspcsdm || "-")}</span></div>
-          <div class="detail-item"><strong>县区</strong>${escapeHtml(detail.xq || "-")}</div>
-          <div class="detail-item"><strong>县区代码</strong><span class="mono">${escapeHtml(detail.xqdm || "-")}</span></div>
-          <div class="detail-item"><strong>来源</strong>${escapeHtml(sourceLabel || "-")}</div>
-          <div class="detail-item"><strong>状态</strong>${statusBadge(detail.status)}</div>
-          <div class="detail-item"><strong>任务状态</strong>${escapeHtml(detail.rwzt || "-")}</div>
-          <div class="detail-item"><strong>单位层级</strong>${escapeHtml(detail.unit_level || "-")}</div>
-          <div class="detail-item"><strong>创建时间</strong>${escapeHtml(formatTime(detail.created_at))}</div>
-          <div class="detail-item"><strong>更新时间</strong>${escapeHtml(formatTime(detail.updated_at))}</div>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+          <div><strong>姓名</strong>${escapeHtml(detail.xm || "-")}</div>
+          <div><strong>职务</strong>${escapeHtml(detail.zw || "-")}</div>
+          <div><strong>派出所</strong>${escapeHtml(detail.sspcs || "-")}</div>
+          <div><strong>派出所代码</strong><span>${escapeHtml(detail.sspcsdm || "-")}</span></div>
+          <div><strong>县区</strong>${escapeHtml(detail.xq || "-")}</div>
+          <div><strong>县区代码</strong><span>${escapeHtml(detail.xqdm || "-")}</span></div>
+          <div><strong>来源</strong>${escapeHtml(sourceLabel || "-")}</div>
+          <div><strong>状态</strong>${statusBadge(detail.status)}</div>
+          <div><strong>任务状态</strong>${escapeHtml(detail.rwzt || "-")}</div>
+          <div><strong>单位层级</strong>${escapeHtml(detail.unit_level || "-")}</div>
+          <div><strong>创建时间</strong>${escapeHtml(formatTime(detail.created_at))}</div>
+          <div><strong>更新时间</strong>${escapeHtml(formatTime(detail.updated_at))}</div>
         </div>
       </div>
-      <div class="detail-block">
+      <div>
         <h3>手机号</h3>
         ${(detail.phones || []).length
-          ? `<div class="table-wrap"><table><thead><tr><th>原始号码</th><th>标准手机号</th><th>状态</th><th>主号</th></tr></thead><tbody>${phoneRows}</tbody></table></div>`
+          ? `<div><table><thead><tr><th>原始号码</th><th>标准手机号</th><th>状态</th><th>主号</th></tr></thead><tbody>${phoneRows}</tbody></table></div>`
           : emptyState("暂无手机号")}
       </div>
-      <div class="detail-block">
+      <div>
         <h3>备注</h3>
         ${textBlock(detail.remark || "")}
       </div>

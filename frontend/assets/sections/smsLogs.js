@@ -3,35 +3,35 @@ import { formatTime, optionList, panel, renderPagination, statusBadge, table, tr
 function renderFilters(app) {
   const filters = app.state.themeSmsLogPage.filters;
   return `
-    <form id="sms-log-filter-form" class="form-stack">
-      <div class="filter-grid">
-        <div class="field-block">
+    <form id="sms-log-filter-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));">
+        <div>
           <label for="sms_source_id">数据源</label>
           <select id="sms_source_id" name="source_id">
             ${optionList(app.state.themeSources, (item) => `${item.source_name} (${item.source_code})`, filters.source_id, "全部数据源")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="sms_topic_id">主题</label>
           <select id="sms_topic_id" name="topic_id">
             ${optionList(app.getTopicsForSource(filters.source_id), (item) => `${item.theme_name} (${item.theme_code})`, filters.topic_id, "全部主题")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="sms_status">状态</label>
           <select id="sms_status" name="status">
             <option value="">全部状态</option>
             ${["sent", "failed", "skipped_duplicate", "skipped_sms_disabled", "dry_run"].map((item) => `<option value="${item}" ${filters.status === item ? "selected" : ""}>${item}</option>`).join("")}
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="sms_mobile">手机号</label>
           <input id="sms_mobile" name="mobile" type="text" value="${filters.mobile || ""}">
         </div>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">应用筛选</button>
-        <button class="button button-secondary" type="button" data-action="sms-reset">重置筛选</button>
+      <div role="group">
+        <button type="submit">应用筛选</button>
+        <button class="secondary" type="button" data-action="sms-reset">重置筛选</button>
       </div>
     </form>
   `;
@@ -45,9 +45,9 @@ function renderSmsLogTable(app) {
     item.topic_name,
     item.mobile,
     statusBadge(item.status),
-    item.error_message ? `<span class="muted">${truncateText(item.error_message, 52)}</span>` : truncateText(item.content_preview, 52),
-    `<span class="mono">${truncateText(item.provider_msg_id || "-", 20)}</span>`,
-    `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
+    item.error_message ? `<span>${truncateText(item.error_message, 52)}</span>` : truncateText(item.content_preview, 52),
+    `<span>${truncateText(item.provider_msg_id || "-", 20)}</span>`,
+    `<div role="group"><button class="outline" type="button" data-action="open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button></div>`,
   ]);
   return `
     ${table(
@@ -69,7 +69,7 @@ export const smsLogsSection = {
   },
   render(app) {
     return `
-      <div class="content-grid">
+      <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("筛选条件", "先筛失败项。", renderFilters(app), { span: 4 })}
         ${panel("短信发送记录", "列表看摘要。", renderSmsLogTable(app), { span: 8 })}
       </div>

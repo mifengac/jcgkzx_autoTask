@@ -1,0 +1,53 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>基础管控中心短信监测配置平台</title>
+  <link rel="stylesheet" href="/assets/pico.min.css">
+</head>
+<body>
+  <main class="container">
+    <div class="grid" style="align-items:start;">
+      <section>
+        <article>
+          <header>
+            <p><small>JCGKZX SMS PLATFORM</small></p>
+            <h1>基础管控中心短信监测配置平台</h1>
+            <p>统一管理短信监测、脚本任务、主题规则与运行记录。</p>
+          </header>
+          <ul>
+            <li><strong>主题监测</strong>：按数据源、主题与接收规则统一配置。</li>
+            <li><strong>脚本任务</strong>：上传脚本包并按频率执行，保留运行详情。</li>
+            <li><strong>短信发送</strong>：统一查看命中、发送状态与失败原因。</li>
+          </ul>
+        </article>
+      </section>
+
+      <section>
+        <article>
+          <header>
+            <p><small>账号登录</small></p>
+            <h2>欢迎使用</h2>
+            <p>请输入平台账号和密码。</p>
+          </header>
+
+          <form id="login-form">
+            <label for="username">用户名</label>
+            <input id="username" name="username" type="text" autocomplete="username" placeholder="请输入用户名" required>
+
+            <label for="password">密码</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+
+            <button id="login-submit" type="submit">登录平台</button>
+          </form>
+
+          <section id="login-message" hidden role="alert"></section>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/assets/login.js"></script>
+</body>
+</html>

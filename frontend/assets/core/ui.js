@@ -1,4 +1,4 @@
-export function escapeHtml(value) {
+﻿export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -46,41 +46,52 @@ export function truncateText(value, max = 72) {
 }
 
 export function emptyState(text) {
-  return `<div class="empty-state">${escapeHtml(text)}</div>`;
+  return `<article><p><em>${escapeHtml(text)}</em></p></article>`;
 }
 
 export function statusBadge(status) {
   const value = String(status ?? "");
-  const tone = /fail|error/i.test(value)
-    ? "failed"
-    : /skip|dry|duplicate|partial/i.test(value)
-      ? "warning"
-      : "";
-  return `<span class="status-badge ${tone}">${escapeHtml(value || "-")}</span>`;
+  const body = escapeHtml(value || "-");
+  if (/fail|error/i.test(value)) {
+    return `<mark>${body}</mark>`;
+  }
+  if (/skip|dry|duplicate|partial/i.test(value)) {
+    return `<small><strong>${body}</strong></small>`;
+  }
+  return `<small>${body}</small>`;
 }
 
 export function panel(title, subtitle, content, options = {}) {
-  const span = options.span ? ` span-${options.span}` : "";
+  const spanMap = {
+    4: "span 4",
+    5: "span 5",
+    7: "span 7",
+    8: "span 8",
+    12: "span 12",
+  };
+  const gridStyle = options.span && spanMap[options.span]
+    ? ` style="grid-column:${spanMap[options.span]};"`
+    : "";
   const actions = options.actions ? `<div>${options.actions}</div>` : "";
   return `
-    <section class="panel${span}">
-      <div class="panel-header">
+    <article${gridStyle}>
+      <header>
         <div>
           <h3>${escapeHtml(title)}</h3>
           ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
         </div>
         ${actions}
-      </div>
+      </header>
       ${content}
-    </section>
+    </article>
   `;
 }
 
 export function metricCard(label, value) {
   return `
-    <article class="stat-card">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
+    <article>
+      <small>${escapeHtml(label)}</small>
+      <h3>${escapeHtml(value)}</h3>
     </article>
   `;
 }
@@ -91,13 +102,15 @@ export function renderPagination({ total, limit, offset, action }) {
   const previousDisabled = offset <= 0 ? "disabled" : "";
   const nextDisabled = offset + limit >= total ? "disabled" : "";
   return `
-    <div class="pagination">
-      <span class="muted">显示 ${start}-${end} / 共 ${total} 条</span>
-      <div class="pagination-actions">
-        <button class="small-button" type="button" data-action="${action}" data-direction="prev" ${previousDisabled}>上一页</button>
-        <button class="small-button" type="button" data-action="${action}" data-direction="next" ${nextDisabled}>下一页</button>
-      </div>
-    </div>
+    <nav aria-label="pagination">
+      <ul>
+        <li><small>显示 ${start}-${end} / 共 ${total} 条</small></li>
+      </ul>
+      <ul>
+        <li><button type="button" data-action="${action}" data-direction="prev" ${previousDisabled}>上一页</button></li>
+        <li><button type="button" data-action="${action}" data-direction="next" ${nextDisabled}>下一页</button></li>
+      </ul>
+    </nav>
   `;
 }
 
@@ -112,28 +125,24 @@ export function optionList(items, getLabel, selectedValue, placeholder = "请选
 }
 
 export function jsonBlock(value) {
-  return `<pre class="json-block">${escapeHtml(JSON.stringify(value ?? {}, null, 2))}</pre>`;
+  return `<pre>${escapeHtml(JSON.stringify(value ?? {}, null, 2))}</pre>`;
 }
 
 export function textBlock(value) {
-  return `<pre class="text-block">${escapeHtml(value ?? "")}</pre>`;
+  return `<pre>${escapeHtml(value ?? "")}</pre>`;
 }
 
 export function table(headers, rows) {
-  const headerHtml = headers
-    .map((item) => `<th class="${item === "操作" ? "table-col-action" : ""}">${escapeHtml(item)}</th>`)
-    .join("");
+  const headerHtml = headers.map((item) => `<th>${escapeHtml(item)}</th>`).join("");
   const bodyHtml = rows.length
-    ? rows
-      .map((row) => `<tr>${row.map((cell, index) => `<td class="${headers[index] === "操作" ? "table-col-action" : ""}">${cell}</td>`).join("")}</tr>`)
-      .join("")
+    ? rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")
     : `<tr><td colspan="${headers.length}">${emptyState("暂无数据")}</td></tr>`;
   return `
-    <div class="table-wrap">
+    <figure>
       <table>
         <thead><tr>${headerHtml}</tr></thead>
         <tbody>${bodyHtml}</tbody>
       </table>
-    </div>
+    </figure>
   `;
 }

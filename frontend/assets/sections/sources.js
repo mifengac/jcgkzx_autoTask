@@ -11,24 +11,24 @@ function renderSourceCards(app) {
   }
 
   return `
-    <div class="card-list">
+    <div>
       ${app.state.themeSources.map((item) => `
-        <article class="card-item ${app.state.selectedSourceId === item.id ? "active" : ""}">
-          <div class="card-head">
+        <article>
+          <div>
             <div>
               <h4>${escapeHtml(item.source_name)}</h4>
-              <div class="card-meta">编码: <span class="mono">${escapeHtml(item.source_code)}</span></div>
+              <div>编码: <span>${escapeHtml(item.source_code)}</span></div>
             </div>
             ${statusBadge(item.enabled ? "启用" : "停用")}
           </div>
-          <div class="card-meta">
+          <div>
             类型: ${escapeHtml(item.source_type)}<br>
             调度: ${item.schedule.interval_value} ${escapeHtml(item.schedule.interval_unit)}<br>
             主题数: ${item.topic_count}
           </div>
-          <div class="card-actions">
-            <button class="small-button" type="button" data-action="source-select" data-id="${item.id}">选中</button>
-            <button class="small-button" type="button" data-action="source-edit" data-id="${item.id}">编辑</button>
+          <div role="group">
+            <button class="outline" type="button" data-action="source-select" data-id="${item.id}">选中</button>
+            <button class="outline" type="button" data-action="source-edit" data-id="${item.id}">编辑</button>
           </div>
         </article>
       `).join("")}
@@ -41,30 +41,30 @@ function renderSourceForm(app) {
   const editing = app.state.editingSourceId ? currentSource(app) : null;
   const value = editing || source;
   return `
-    <div class="banner">${source ? `当前数据源: ${escapeHtml(source.source_name)} / ${escapeHtml(source.source_code)}` : "当前未选中数据源"}</div>
-    <form id="source-form" class="form-stack">
-      <div class="form-grid two">
-        <div class="field-block">
+    <div>${source ? `当前数据源: ${escapeHtml(source.source_name)} / ${escapeHtml(source.source_code)}` : "当前未选中数据源"}</div>
+    <form id="source-form">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));">
+        <div>
           <label for="source_name">数据源名称</label>
           <input id="source_name" name="source_name" type="text" value="${escapeHtml(value?.source_name || "")}" required>
         </div>
-        <div class="field-block">
+        <div>
           <label for="source_code">数据源编码</label>
           <input id="source_code" name="source_code" type="text" value="${escapeHtml(value?.source_code || "")}" required>
         </div>
       </div>
-      <div class="form-grid three">
-        <div class="field-block">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));">
+        <div>
           <label for="source_type">数据源类型</label>
           <select id="source_type" name="source_type">
             <option value="dsjfx_case_list" selected>dsjfx_case_list</option>
           </select>
         </div>
-        <div class="field-block">
+        <div>
           <label for="schedule_interval_value">调度值</label>
           <input id="schedule_interval_value" name="schedule_interval_value" type="number" min="1" value="${value?.schedule?.interval_value || 20}">
         </div>
-        <div class="field-block">
+        <div>
           <label for="schedule_interval_unit">调度单位</label>
           <select id="schedule_interval_unit" name="schedule_interval_unit">
             <option value="minute" ${(value?.schedule?.interval_unit || "minute") === "minute" ? "selected" : ""}>分钟</option>
@@ -72,20 +72,20 @@ function renderSourceForm(app) {
           </select>
         </div>
       </div>
-      <div class="field-block">
+      <div>
         <label for="schedule_timezone">时区</label>
         <input id="schedule_timezone" name="schedule_timezone" type="text" value="${escapeHtml(value?.schedule?.timezone || "Asia/Shanghai")}">
       </div>
-      <div class="field-block">
+      <div>
         <label for="source_config">数据源配置 JSON</label>
         <textarea id="source_config" name="source_config" rows="12">${escapeHtml(JSON.stringify(value?.source_config || {}, null, 2))}</textarea>
       </div>
-      <div class="checkbox-row">
-        <label class="checkbox"><input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}><span>启用数据源</span></label>
+      <div>
+        <label><input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}><span>启用数据源</span></label>
       </div>
-      <div class="inline-actions">
-        <button class="button" type="submit">${app.state.editingSourceId ? "更新数据源" : "创建数据源"}</button>
-        <button class="button button-secondary" type="button" data-action="source-reset">新建数据源</button>
+      <div role="group">
+        <button type="submit">${app.state.editingSourceId ? "更新数据源" : "创建数据源"}</button>
+        <button class="secondary" type="button" data-action="source-reset">新建数据源</button>
       </div>
     </form>
   `;
@@ -95,11 +95,11 @@ function renderSourceRunPanel(app) {
   const source = currentSource(app);
   const runs = app.state.themeRunPage.items || [];
   return `
-    <div class="banner">${source ? `当前数据源: ${escapeHtml(source.source_name)}` : "请先在列表概览中选中一条数据源。"}</div>
-    <div class="inline-actions" style="margin-top:12px;">
-      <button class="button button-ghost" type="button" data-action="source-run-dry" ${source ? "" : "disabled"}>演练</button>
-      <button class="button button-danger" type="button" data-action="source-run-live" ${source ? "" : "disabled"}>立即执行</button>
-      <button class="button button-secondary" type="button" data-action="source-refresh-runs" ${source ? "" : "disabled"}>刷新运行记录</button>
+    <div>${source ? `当前数据源: ${escapeHtml(source.source_name)}` : "请先在列表概览中选中一条数据源。"}</div>
+    <div role="group" style="margin-top:12px;">
+      <button class="outline" type="button" data-action="source-run-dry" ${source ? "" : "disabled"}>演练</button>
+      <button class="contrast" type="button" data-action="source-run-live" ${source ? "" : "disabled"}>立即执行</button>
+      <button class="secondary" type="button" data-action="source-refresh-runs" ${source ? "" : "disabled"}>刷新运行记录</button>
     </div>
     <div style="margin-top:16px;">
       ${source ? jsonBlock(source.source_config) : emptyState("选中数据源后可以在这里查看当前抓取配置。")}
@@ -108,13 +108,13 @@ function renderSourceRunPanel(app) {
       ${runs.length ? table(
         ["运行号", "状态", "抓取", "命中", "发送", "时间", "操作"],
         runs.map((run) => [
-          `<span class="mono">${escapeHtml(run.run_no)}</span>`,
+          `<span>${escapeHtml(run.run_no)}</span>`,
           statusBadge(run.status),
           String(run.fetched_count),
           String(run.matched_count),
           String(run.send_count),
           formatTime(run.finished_at || run.started_at),
-          `<div class="table-action"><button class="small-button" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
+          `<div role="group"><button class="outline" type="button" data-action="open-detail" data-type="theme-run" data-id="${run.id}">详情</button></div>`,
         ])
       ) : emptyState("当前数据源暂无运行记录。")}
     </div>
@@ -140,7 +140,7 @@ export const sourcesSection = {
     const enabledCount = app.state.themeSources.filter((item) => item.enabled).length;
     const tab = app.state.route.secondary;
     const summary = `
-      <div class="stat-grid">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));">
         ${metricCard("数据源总数", app.state.themeSources.length)}
         ${metricCard("已启用", enabledCount)}
         ${metricCard("主题总数", app.state.themeSources.reduce((sum, item) => sum + item.topic_count, 0))}
@@ -149,20 +149,20 @@ export const sourcesSection = {
     `;
 
     if (tab === "editor") {
-      return `<div class="content-grid">
+      return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("数据源概况", "先选数据源。", summary, { span: 4 })}
         ${panel("数据源配置", "编辑调度与参数。", renderSourceForm(app), { span: 8 })}
       </div>`;
     }
 
     if (tab === "run") {
-      return `<div class="content-grid">
+      return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
         ${panel("数据源概况", "确认当前来源。", summary, { span: 4 })}
         ${panel("运行测试", "只作用当前源。", renderSourceRunPanel(app), { span: 8 })}
       </div>`;
     }
 
-    return `<div class="content-grid">
+    return `<div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
       ${panel("数据源概况", "看当前状态。", summary, { span: 4 })}
       ${panel("数据源列表", "列表只做切换。", renderSourceCards(app), { span: 8 })}
     </div>`;
