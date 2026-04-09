@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    auth_cookie_name: str = "autotask_session"
+    auth_secret_key: str = "jcgkzx-autotask-auth-secret"
+    auth_session_ttl_hours: int = 12
 
     database_url: str | None = None
     db_schema: str = "jcgkzx_autotask"

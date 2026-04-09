@@ -29,6 +29,19 @@ class TimestampMixin:
     )
 
 
+class PlatformUser(TimestampMixin, Base):
+    __tablename__ = "platform_user"
+    __table_args__ = {"schema": SCHEMA}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ScriptDefinition(TimestampMixin, Base):
     __tablename__ = "script_definition"
     __table_args__ = {"schema": SCHEMA}

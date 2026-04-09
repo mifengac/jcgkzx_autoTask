@@ -1,6 +1,6 @@
 services:
   autotask:
-    image: ${IMAGE_NAME:-jcgkzx-autotask:offline-20260407_202451}
+    image: ${IMAGE_NAME:-jcgkzx-autotask:offline-20260409_173400}
     pull_policy: never
     container_name: jcgkzx-autotask
     restart: unless-stopped

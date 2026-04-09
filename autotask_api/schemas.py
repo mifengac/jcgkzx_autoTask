@@ -11,6 +11,22 @@ class JsonPayloadMixin(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class LoginRequest(JsonPayloadMixin):
+    username: str
+    password: str
+
+
+class PlatformUserRead(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    enabled: bool
+    is_builtin: bool
+    last_login_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class ScriptUploadResponse(BaseModel):
     script_id: int
     script_version_id: int

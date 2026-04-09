@@ -1,5 +1,9 @@
 export async function api(path, options = {}) {
   const response = await fetch(path, options);
+  if (response.status === 401 && window.location.pathname !== "/login") {
+    window.location.href = "/login";
+    throw new Error("登录已失效，请重新登录。");
+  }
   if (response.status === 204) {
     return null;
   }
