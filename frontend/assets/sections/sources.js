@@ -14,14 +14,14 @@ function renderSourceCards(app) {
     <div>
       ${app.state.themeSources.map((item) => `
         <article>
-          <div>
+          <div class="card-head">
             <div>
               <h4>${escapeHtml(item.source_name)}</h4>
               <div>编码: <span>${escapeHtml(item.source_code)}</span></div>
             </div>
             ${statusBadge(item.enabled ? "启用" : "停用")}
           </div>
-          <div>
+          <div class="card-meta">
             类型: ${escapeHtml(item.source_type)}<br>
             调度: ${item.schedule.interval_value} ${escapeHtml(item.schedule.interval_unit)}<br>
             主题数: ${item.topic_count}

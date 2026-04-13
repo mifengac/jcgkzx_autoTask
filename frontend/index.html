@@ -63,6 +63,70 @@
         max-width: none;
       }
     }
+
+    /* ---------- Health status pill ---------- */
+    #health-pill {
+      display: inline-block;
+      padding: 0.15rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      transition: background 200ms ease;
+    }
+    #health-pill[data-state="ok"]       { color: #0d6b57; background: rgba(13,107,87,0.12); }
+    #health-pill[data-state="bad"]      { color: #a73c2c; background: rgba(167,60,44,0.12); }
+    #health-pill[data-state="checking"] { opacity: 0.6; }
+
+    /* ---------- Flash toast ---------- */
+    #flash {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      max-width: 28rem;
+    }
+    #flash article {
+      margin: 0;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    }
+
+    /* ---------- Detail drawer ---------- */
+    #detail-drawer {
+      max-width: min(92vw, 860px);
+      width: 860px;
+    }
+    #detail-drawer > article {
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    /* ---------- Primary nav wrapping ---------- */
+    #primary-nav ul {
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    /* ---------- Data-card layout helpers ---------- */
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .card-head h4 { margin-bottom: 0.25rem; }
+
+    .card-meta {
+      margin-bottom: 0.75rem;
+      color: var(--pico-muted-color);
+      line-height: 1.7;
+      font-size: 0.9rem;
+    }
+
+    /* ---------- Responsive table overflow ---------- */
+    figure {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
   </style>
 </head>
 <body>

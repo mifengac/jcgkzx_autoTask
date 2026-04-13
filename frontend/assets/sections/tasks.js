@@ -72,14 +72,14 @@ function renderScriptList(app) {
     <div>
       ${app.state.scripts.map((script) => `
         <article>
-          <div>
+          <div class="card-head">
             <div>
               <h4>${escapeHtml(script.script_name)}</h4>
               <div>编码: <span>${escapeHtml(script.script_code)}</span></div>
             </div>
             ${statusBadge(script.status)}
           </div>
-          <div>
+          <div class="card-meta">
             入口: ${escapeHtml(script.entry_file)}#${escapeHtml(script.entry_func || "run")}<br>
             版本: ${(script.versions || []).map((item) => escapeHtml(item.version_no)).join(", ") || "暂无"}
           </div>
@@ -99,14 +99,14 @@ function renderTaskList(app) {
         const schedule = (task.schedules || [])[0];
         return `
           <article>
-            <div>
+            <div class="card-head">
               <div>
                 <h4>${escapeHtml(task.task_name)}</h4>
                 <div>任务 ID: ${task.id}</div>
               </div>
               ${statusBadge(task.enabled ? "启用" : "停用")}
             </div>
-              <div>
+              <div class="card-meta">
               script_id=${task.script_id} / version_id=${task.script_version_id}<br>
               模板: ${task.message_template_id || "未绑定"}<br>
               调度: ${schedule ? `${schedule.interval_value} ${schedule.interval_unit}` : "未配置"}<br>
@@ -271,14 +271,14 @@ function renderTaskRuleList(app) {
     <div>
       ${task.rules.map((rule) => `
         <article>
-          <div>
+          <div class="card-head">
             <div>
               <h4>${escapeHtml(rule.rule_name)}</h4>
               <div>类型: ${escapeHtml(rule.rule_type)}</div>
             </div>
             ${statusBadge(rule.enabled ? "启用" : "停用")}
           </div>
-          <div>
+          <div class="card-meta">
             匹配字段: ${escapeHtml(rule.source_field || "-")} → ${escapeHtml(rule.target_match_field)}<br>
             固定接收人: ${escapeHtml((rule.fixed_receivers || []).join(", ") || "-")}
           </div>

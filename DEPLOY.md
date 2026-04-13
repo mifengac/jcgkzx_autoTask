@@ -28,7 +28,6 @@
 ```text
 deploy/
 ├── docker-compose.yml
-├── docker-compose.build.yml
 ├── .env
 ├── DEPLOY.md
 └── jcgkzx-autotask_latest.tar
@@ -37,7 +36,6 @@ deploy/
 说明：
 
 - `.env` 和 `docker-compose.yml` 放在同一目录即可
-- `docker-compose.build.yml` 只用于联网机器构建镜像，内网服务器不需要它
 - `jcgkzx-autotask_latest.tar` 是预先导出的镜像包
 - `uploads/` 目录可不提前创建，首次启动前补一个空目录即可
 
@@ -67,7 +65,7 @@ cp .env.example .env
 直接构建：
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose build
 ```
 
 如果国内源不可用，把 `.env` 中这些变量改成官方源后重新构建：

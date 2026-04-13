@@ -50,7 +50,7 @@ Recommended local workflow:
 - Run the app: `uv run uvicorn autotask_api.main:app --host 0.0.0.0 --port 8000 --reload`
 - Run tests: `pytest`
 - Validate Docker config: `docker compose config`
-- Build the image: `docker compose -f docker-compose.yml -f docker-compose.build.yml build`
+- Build the image: `docker compose build`
 
 Use Python 3.11 locally when possible. The README and `.env.example` assume that version.
 

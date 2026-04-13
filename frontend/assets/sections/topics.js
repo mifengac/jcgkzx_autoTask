@@ -33,14 +33,14 @@ function renderTopicCards(app) {
     <div>
       ${topics.map((topic) => `
         <article>
-          <div>
+          <div class="card-head">
             <div>
               <h4>${escapeHtml(topic.theme_name)}</h4>
               <div>编码: <span>${escapeHtml(topic.theme_code)}</span></div>
             </div>
             ${statusBadge(topic.enabled ? "启用" : "停用")}
           </div>
-          <div>
+          <div class="card-meta">
             模板: ${topic.message_template_id || "未绑定"}<br>
             去重: ${escapeHtml(topic.dedup_mode)}${topic.dedup_window_minutes ? ` / ${topic.dedup_window_minutes} 分钟` : ""}<br>
             接收规则: ${(topic.receiver_rules || []).length}
@@ -126,14 +126,14 @@ function renderRuleCards(app) {
     <div>
       ${topic.receiver_rules.map((rule) => `
         <article>
-          <div>
+          <div class="card-head">
             <div>
               <h4>${escapeHtml(rule.rule_name)}</h4>
               <div>类型: ${escapeHtml(rule.rule_type)}</div>
             </div>
             ${statusBadge(rule.enabled ? "启用" : "停用")}
           </div>
-          <div>
+          <div class="card-meta">
             匹配字段: ${escapeHtml(rule.source_field || "-")} → ${escapeHtml(rule.target_match_field)}<br>
             固定接收人: ${escapeHtml((rule.fixed_receivers || []).join(", ") || "-")}
           </div>

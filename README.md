@@ -75,7 +75,7 @@ uv run uvicorn autotask_api.main:app --host 0.0.0.0 --port 8000 --reload
 
 ```bash
 cp .env.example .env
-docker compose -f docker-compose.yml -f docker-compose.build.yml build
+docker compose build
 docker compose up -d
 ```
 
@@ -87,8 +87,8 @@ docker compose down
 
 ### 构建策略
 
-`docker-compose.yml` 现在只负责离线运行，不再包含构建参数。
-在线构建时，使用 `docker-compose.build.yml` 注入构建参数：
+`docker-compose.yml` 包含完整的运行配置和构建参数。
+构建时可通过环境变量覆盖以下构建参数：
 
 - `PYTHON_BASE_IMAGE`
 - `UV_INDEX_URL`
@@ -109,7 +109,7 @@ docker compose down
 - 宿主机暴露端口由 `.env` 中的 `APP_PORT` 控制
 - `uploads/` 会挂载到宿主机当前目录，脚本包和解压目录会持久化
 - `host.docker.internal:host-gateway` 已写入 compose，便于容器访问宿主机数据库
-- 内网服务器只需要 `docker-compose.yml`、`.env` 和已导出的镜像包，不需要 `docker-compose.build.yml`
+- 内网服务器只需要 `docker-compose.yml`、`.env` 和已导出的镜像包
 
 ## 配置说明
 

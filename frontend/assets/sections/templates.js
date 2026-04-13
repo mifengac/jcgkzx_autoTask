@@ -21,14 +21,14 @@ function renderTemplateList(app) {
 
   const cards = app.state.templates.map((template) => `
     <article>
-      <div>
+      <div class="card-head">
         <div>
           <h4>${escapeHtml(template.template_name)}</h4>
           <div>编码: <span>${escapeHtml(template.template_code)}</span></div>
         </div>
         ${statusBadge(template.enabled ? "启用" : "停用")}
       </div>
-      <div>${escapeHtml(truncateText(template.template_content, 120))}</div>
+      <div class="card-meta">${escapeHtml(truncateText(template.template_content, 120))}</div>
       <div role="group">
         <button class="outline" type="button" data-action="template-edit" data-id="${template.id}">编辑模板</button>
       </div>

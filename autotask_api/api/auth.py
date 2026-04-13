@@ -29,7 +29,7 @@ def login(
     if not user_table_exists(db):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="未找到用户表，请先执行 0408_auth_user.sql。",
+            detail="未找到用户表，请先执行 migrations/0408_auth_user.sql。",
         )
     user = authenticate_user(db, payload.username, payload.password)
     if user is None:

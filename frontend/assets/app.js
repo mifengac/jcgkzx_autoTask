@@ -650,7 +650,7 @@ const app = {
   renderDrawerCard({ title, status, meta = [], summary = "", actionHtml = "" }) {
     return `
       <article>
-        <div>
+        <div class="card-head">
           <h4>${title}</h4>
           ${status || ""}
         </div>
