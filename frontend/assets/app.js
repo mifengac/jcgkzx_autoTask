@@ -1,5 +1,5 @@
 import { api } from "./core/api.js";
-import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, textBlock, truncateText } from "./core/ui.js";
+import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, table, textBlock, truncateText } from "./core/ui.js";
 import { contactsSection } from "./sections/contacts.js";
 import { overviewSection } from "./sections/overview.js";
 import { resultsSection } from "./sections/results.js";
@@ -637,7 +637,7 @@ const app = {
       return emptyState("暂无信息。");
     }
     return `
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+      <div class="drawer-detail-grid">
         ${visibleItems.map((item) => `
           <div>
             <strong>${escapeHtml(item.label)}</strong>
@@ -679,7 +679,7 @@ const app = {
     const receiverText = escapeHtml((detail.receiver_mobiles || []).join(", ") || "-");
     const matchedRules = escapeHtml((detail.matched_rule_ids || []).join(", ") || "无");
     return `
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+      <div class="drawer-detail-grid">
         <div>
           <h3>基本信息</h3>
           ${this.renderDetailFacts([
@@ -701,7 +701,7 @@ const app = {
           ])}
         </div>
       </div>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+      <div class="drawer-detail-grid">
         <div>
           <h3>短信内容</h3>
           ${textBlock(detail.rendered_message || "")}
@@ -715,7 +715,7 @@ const app = {
   },
   renderThemeSmsLogDrawer(detail) {
     return `
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+      <div class="drawer-detail-grid">
         <div>
           <h3>发送概要</h3>
           ${this.renderDetailFacts([
@@ -737,7 +737,7 @@ const app = {
           ])}
         </div>
       </div>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items:start;">
+      <div class="drawer-detail-grid">
         <div>
           <div style="margin-bottom:10px;">
             <div><h3>短信内容</h3><p>支持复制。</p></div>
@@ -941,6 +941,497 @@ const app = {
     `;
   },
 };
+
+Object.assign(app, {
+  renderShell() {
+    dom.healthPill.textContent = state.healthOk === null ? "检查中" : state.healthOk ? "服务正常" : "服务异常";
+    dom.healthPill.dataset.state = state.healthOk === null ? "checking" : state.healthOk ? "ok" : "bad";
+
+    const section = sectionMap[state.route.primary];
+    const activeTab = section.tabs.find((tab) => tab.key === state.route.secondary) || section.tabs[0];
+    const sectionIndex = sections.findIndex((item) => item.key === section.key) + 1;
+
+    dom.primaryNav.innerHTML = `
+      <ul class="console-nav-list">
+        ${sections.map((item) => `
+          <li>
+            <button class="console-nav-button${state.route.primary === item.key ? " is-active" : ""}" type="button" data-primary="${item.key}">
+              <span class="console-nav-button__label">${escapeHtml(item.label)}</span>
+              <span class="console-nav-button__meta">${escapeHtml(item.description)}</span>
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    `;
+    dom.primaryNav.querySelectorAll("[data-primary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.navigate(button.dataset.primary, getDefaultTab(button.dataset.primary));
+      });
+    });
+
+    dom.secondaryTitle.textContent = section.label;
+    dom.secondaryNav.innerHTML = `
+      <ul class="console-nav-list">
+        ${section.tabs.map((tab) => `
+          <li>
+            <button class="console-nav-button console-nav-button--secondary${state.route.secondary === tab.key ? " is-active" : ""}" type="button" data-secondary="${tab.key}">
+              <span class="console-nav-button__label">${escapeHtml(tab.label)}</span>
+              <span class="console-nav-button__meta">${escapeHtml(tab.hint || "切换视图")}</span>
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    `;
+    dom.secondaryNav.querySelectorAll("[data-secondary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.navigate(state.route.primary, button.dataset.secondary);
+      });
+    });
+
+    const metaPills = [
+      `<span class="context-pill">当前子页 · ${escapeHtml(activeTab.label)}</span>`,
+      activeTab.hint ? `<span class="context-pill">${escapeHtml(activeTab.hint)}</span>` : "",
+    ];
+    if (state.selectedSourceId && state.route.primary !== "sources") {
+      metaPills.push(`<span class="context-pill">当前数据源 · ${escapeHtml(this.getCurrentSource()?.source_name || `#${state.selectedSourceId}`)}</span>`);
+    }
+    if (state.selectedTopicId && state.route.primary !== "topics") {
+      metaPills.push(`<span class="context-pill">当前主题 · ${escapeHtml(this.getCurrentTopic()?.theme_name || `#${state.selectedTopicId}`)}</span>`);
+    }
+    if (state.selectedTaskId && state.route.primary !== "tasks") {
+      metaPills.push(`<span class="context-pill">当前任务 · ${escapeHtml(this.getCurrentTask()?.task_name || `#${state.selectedTaskId}`)}</span>`);
+    }
+
+    dom.sectionHeader.innerHTML = `
+      <div class="console-section-card__body">
+        <div>
+          <p class="section-kicker">章节 ${String(sectionIndex).padStart(2, "0")}</p>
+          <h2>${escapeHtml(section.label)}</h2>
+        </div>
+        <div class="console-stack">
+          <p class="console-section-card__lead">${escapeHtml(section.description)}</p>
+          <div class="console-section-card__meta">${metaPills.filter(Boolean).join("")}</div>
+        </div>
+      </div>
+    `;
+  },
+  flash(message, isError = false) {
+    if (!message) {
+      dom.flash.hidden = true;
+      dom.flash.innerHTML = "";
+      return;
+    }
+    dom.flash.hidden = false;
+    dom.flash.innerHTML = `
+      <article class="flash-card${isError ? " flash-card--error" : ""}" ${isError ? 'aria-invalid="true"' : ""}>
+        <p class="flash-card__eyebrow">${isError ? "Error State" : "System Notice"}</p>
+        <strong>${isError ? "错误提醒" : "系统提示"}</strong>
+        <p>${escapeHtml(String(message))}</p>
+      </article>
+    `;
+    window.clearTimeout(this.flashTimer);
+    this.flashTimer = window.setTimeout(() => {
+      dom.flash.hidden = true;
+      dom.flash.innerHTML = "";
+    }, 4200);
+  },
+  async openDrawer(type, id) {
+    state.drawer.open = true;
+    state.drawer.title = "加载中...";
+    state.drawer.eyebrow = "详情";
+    state.drawer.bodyHtml = '<div class="empty-state"><p><em>正在加载详情...</em></p></div>';
+    this.renderDrawer();
+    try {
+      if (type === "theme-result") {
+        const detail = await api(`/api/theme-results/${id}`);
+        state.drawer.title = `${detail.topic_name} / ${detail.case_no || detail.event_key}`;
+        state.drawer.eyebrow = "命中结果";
+        state.drawer.bodyHtml = this.renderThemeResultDrawer(detail);
+      } else if (type === "theme-sms-log") {
+        const detail = await api(`/api/theme-sms-logs/${id}`);
+        state.drawer.title = `${detail.topic_name} / ${detail.mobile}`;
+        state.drawer.eyebrow = "短信发送记录";
+        state.drawer.bodyHtml = this.renderThemeSmsLogDrawer(detail);
+      } else if (type === "theme-run") {
+        const detail = await api(`/api/theme-runs/${id}`);
+        state.drawer.title = detail.run_no;
+        state.drawer.eyebrow = "数据源运行";
+        state.drawer.bodyHtml = this.renderThemeRunDrawer(detail);
+      } else if (type === "task-run") {
+        const detail = await api(`/api/task-runs/${id}`);
+        state.drawer.title = detail.run_no;
+        state.drawer.eyebrow = "自定义任务运行";
+        state.drawer.bodyHtml = this.renderTaskRunDrawer(detail);
+      } else if (type === "contact") {
+        const detail = await api(`/api/contacts/${id}`);
+        state.drawer.title = detail.xm || detail.sspcs || `#${detail.id}`;
+        state.drawer.eyebrow = "联系人详情";
+        state.drawer.bodyHtml = this.renderContactDrawer(detail);
+      }
+      this.renderDrawer();
+    } catch (error) {
+      state.drawer.title = "详情加载失败";
+      state.drawer.eyebrow = "详情";
+      state.drawer.bodyHtml = emptyState(error.message);
+      this.renderDrawer();
+      this.flash(error.message, true);
+    }
+  },
+  renderDrawer() {
+    if (!state.drawer.open) {
+      if (dom.drawer.open) {
+        dom.drawer.close();
+      }
+      return;
+    }
+    dom.drawerTitle.textContent = state.drawer.title;
+    dom.drawerEyebrow.textContent = state.drawer.eyebrow;
+    dom.drawerBody.innerHTML = `<div class="drawer-content">${state.drawer.bodyHtml}</div>`;
+    if (!dom.drawer.open) {
+      dom.drawer.showModal();
+    }
+    this.bindDrawerActions();
+  },
+  bindDrawerActions() {
+    dom.drawerBody.querySelectorAll("[data-action='copy-text']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = dom.drawerBody.querySelector(button.dataset.target);
+        if (!target) {
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(target.textContent || "");
+          this.flash("短信内容已复制。");
+        } catch (error) {
+          this.flash("复制失败，请手动复制。", true);
+        }
+      });
+    });
+    dom.drawerBody.querySelectorAll("[data-action='drawer-open-detail']").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.openDrawer(button.dataset.type, Number(button.dataset.id));
+      });
+    });
+  },
+  renderDetailFacts(items) {
+    const visibleItems = items.filter((item) => item.value !== undefined && item.value !== null && item.value !== "");
+    if (!visibleItems.length) {
+      return emptyState("暂无信息。");
+    }
+    return `
+      <div class="fact-grid">
+        ${visibleItems.map((item) => `
+          <div class="fact-item">
+            <strong>${escapeHtml(item.label)}</strong>
+            ${item.value}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  },
+  renderDrawerCard({ title, status, meta = [], summary = "", actionHtml = "" }) {
+    return `
+      <article class="drawer-card">
+        <div class="drawer-card__head">
+          <h4>${title}</h4>
+          ${status || ""}
+        </div>
+        ${meta.length ? `
+          <div class="drawer-card__meta">
+            ${meta.map((item) => `
+              <div>
+                <strong>${escapeHtml(item.label)}</strong>
+                ${item.value}
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
+        ${summary ? `<div class="drawer-card__summary">${summary}</div>` : ""}
+        ${actionHtml ? `<div class="drawer-card__actions">${actionHtml}</div>` : ""}
+      </article>
+    `;
+  },
+  renderDrawerCardList(items, emptyText, renderer) {
+    if (!items.length) {
+      return emptyState(emptyText);
+    }
+    return `<div class="drawer-card-list">${items.map((item) => renderer(item)).join("")}</div>`;
+  },
+  renderThemeResultDrawer(detail) {
+    const receiverText = escapeHtml((detail.receiver_mobiles || []).join(", ") || "-");
+    const matchedRules = escapeHtml((detail.matched_rule_ids || []).join(", ") || "无");
+    return `
+      <div class="detail-grid">
+        <section class="detail-section">
+          <h3>基本信息</h3>
+          ${this.renderDetailFacts([
+            { label: "数据源", value: escapeHtml(detail.source_name || "-") },
+            { label: "主题", value: escapeHtml(detail.topic_name || "-") },
+            { label: "警情编号", value: escapeHtml(detail.case_no || detail.event_key || "-") },
+            { label: "发送状态", value: statusBadge(detail.send_status) },
+            { label: "Oracle EID", value: `<span>${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "事件键", value: `<span>${escapeHtml(detail.event_key || "-")}</span>` },
+          ])}
+        </section>
+        <section class="detail-section">
+          <h3>接收信息</h3>
+          ${this.renderDetailFacts([
+            { label: "接收人", value: receiverText },
+            { label: "命中规则", value: matchedRules },
+            { label: "数据源 ID", value: escapeHtml(String(detail.source_id ?? "-")) },
+            { label: "主题 ID", value: escapeHtml(String(detail.topic_id ?? "-")) },
+          ])}
+        </section>
+      </div>
+      <div class="detail-grid">
+        <section class="detail-section">
+          <h3>短信内容</h3>
+          ${textBlock(detail.rendered_message || "")}
+        </section>
+        <section class="detail-section">
+          <h3>原始数据</h3>
+          ${jsonBlock(detail.raw_result)}
+        </section>
+      </div>
+    `;
+  },
+  renderThemeSmsLogDrawer(detail) {
+    return `
+      <div class="detail-grid">
+        <section class="detail-section">
+          <h3>发送概要</h3>
+          ${this.renderDetailFacts([
+            { label: "数据源", value: escapeHtml(detail.source_name || "-") },
+            { label: "主题", value: escapeHtml(detail.topic_name || "-") },
+            { label: "手机号", value: escapeHtml(detail.mobile || "-") },
+            { label: "发送状态", value: statusBadge(detail.status) },
+            { label: "Oracle EID", value: `<span>${escapeHtml(detail.oracle_eid || "-")}</span>` },
+            { label: "命中状态", value: statusBadge(detail.result_send_status || "-") },
+          ])}
+        </section>
+        <section class="detail-section">
+          <h3>失败与回执</h3>
+          ${this.renderDetailFacts([
+            { label: "失败原因", value: escapeHtml(detail.error_message || "-") },
+            { label: "平台回执", value: escapeHtml(detail.provider_msg_id || "-") },
+            { label: "命中结果 ID", value: escapeHtml(String(detail.topic_result_id ?? "-")) },
+            { label: "发送时间", value: escapeHtml(formatTime(detail.created_at)) },
+          ])}
+        </section>
+      </div>
+      <div class="detail-grid">
+        <section class="detail-section">
+          <div class="section-actions">
+            <div class="section-actions__copy">
+              <h3>短信内容</h3>
+              <p>支持复制，便于转发核对。</p>
+            </div>
+            <div><button class="outline" type="button" data-action="copy-text" data-target="#sms-log-content">复制</button></div>
+          </div>
+          <pre id="sms-log-content" class="console-pre">${escapeHtml(detail.content || "")}</pre>
+        </section>
+        <section class="detail-section">
+          <div class="section-actions">
+            <div class="section-actions__copy">
+              <h3>关联命中</h3>
+              <p>可以继续追溯到命中结果。</p>
+            </div>
+            ${detail.topic_result_id ? `<div><button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${detail.topic_result_id}">命中详情</button></div>` : ""}
+          </div>
+          ${jsonBlock(detail.raw_result)}
+        </section>
+      </div>
+    `;
+  },
+  renderThemeRunDrawer(detail) {
+    const resultCards = this.renderDrawerCardList(
+      (detail.results || []).slice(0, 10),
+      "本次运行没有命中结果。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.case_no || item.event_key || `#${item.id}`),
+        status: statusBadge(item.send_status),
+        meta: [
+          { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
+          { label: "Oracle EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "规则", value: escapeHtml((item.matched_rule_ids || []).join(", ") || "无") },
+        ],
+        summary: escapeHtml(truncateText(item.rendered_message || item.content_preview || item.event_key || "无摘要", 160)),
+        actionHtml: item.id
+          ? `<button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-result" data-id="${item.id}">详情</button>`
+          : "",
+      })
+    );
+    const smsCards = this.renderDrawerCardList(
+      (detail.sms_logs || []).slice(0, 10),
+      "本次运行没有短信日志。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.mobile || `#${item.id}`),
+        status: statusBadge(item.status),
+        meta: [
+          { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
+          { label: "Oracle EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
+          { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
+        ],
+        summary: escapeHtml(truncateText(item.error_message || item.content_preview || item.content || "无内容", 160)),
+        actionHtml: item.id
+          ? `<button class="outline" type="button" data-action="drawer-open-detail" data-type="theme-sms-log" data-id="${item.id}">详情</button>`
+          : "",
+      })
+    );
+
+    return `
+      <section class="detail-section">
+        <h3>运行摘要</h3>
+        ${this.renderDetailFacts([
+          { label: "运行号", value: `<span>${escapeHtml(detail.run_no)}</span>` },
+          { label: "状态", value: statusBadge(detail.status) },
+          { label: "抓取数量", value: escapeHtml(String(detail.fetched_count ?? "-")) },
+          { label: "命中数量", value: escapeHtml(String(detail.matched_count ?? "-")) },
+          { label: "发送数量", value: escapeHtml(String(detail.send_count ?? "-")) },
+          { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
+        ])}
+      </section>
+      <section class="detail-section">
+        <h3>命中结果（前 10 条）</h3>
+        ${resultCards}
+      </section>
+      <section class="detail-section">
+        <h3>短信日志（前 10 条）</h3>
+        ${smsCards}
+      </section>
+    `;
+  },
+  renderTaskRunDrawer(detail) {
+    const syncPayload = (detail.results || [])
+      .map((item) => item?.raw_result)
+      .find((raw) => raw && typeof raw === "object" && (
+        Object.prototype.hasOwnProperty.call(raw, "fetched_record_count")
+        || Object.prototype.hasOwnProperty.call(raw, "written_record_count")
+        || Object.prototype.hasOwnProperty.call(raw, "target_table")
+      )) || null;
+
+    const resultCards = this.renderDrawerCardList(
+      (detail.results || []).slice(0, 10),
+      "本次运行没有命中结果。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.case_no || item.event_key || `#${item.id}`),
+        status: statusBadge(item.send_status),
+        meta: [
+          { label: "接收人", value: escapeHtml((item.receiver_mobiles || []).join(", ") || "-") },
+          { label: "事件键", value: `<span>${escapeHtml(item.event_key || "-")}</span>` },
+          { label: "结果状态", value: escapeHtml(item.status || "-") },
+        ],
+        summary: escapeHtml(truncateText(
+          item.rendered_message
+            || item.raw_result?.message_text
+            || item.raw_result?.error_message
+            || "无摘要",
+          160
+        )),
+      })
+    );
+    const smsCards = this.renderDrawerCardList(
+      (detail.sms_logs || []).slice(0, 10),
+      "本次运行没有短信日志。",
+      (item) => this.renderDrawerCard({
+        title: escapeHtml(item.mobile || `#${item.id}`),
+        status: statusBadge(item.status),
+        meta: [
+          { label: "发送时间", value: escapeHtml(formatTime(item.created_at)) },
+          { label: "回执", value: escapeHtml(item.provider_msg_id || "-") },
+          { label: "EID", value: `<span>${escapeHtml(item.oracle_eid || "-")}</span>` },
+        ],
+        summary: escapeHtml(truncateText(item.error_message || item.content || "无内容", 160)),
+      })
+    );
+
+    const syncSummaryBlock = syncPayload ? `
+      <section class="detail-section">
+        <h3>同步摘要</h3>
+        ${this.renderDetailFacts([
+          { label: "同步状态", value: statusBadge(syncPayload.status || "-") },
+          { label: "目标表", value: `<span>${escapeHtml(syncPayload.target_table || "-")}</span>` },
+          { label: "抓取数量", value: escapeHtml(String(syncPayload.fetched_record_count ?? "-")) },
+          { label: "写入数量", value: escapeHtml(String(syncPayload.written_record_count ?? "-")) },
+          { label: "开始时间", value: escapeHtml(formatTime(syncPayload.start_time)) },
+          { label: "结束时间", value: escapeHtml(formatTime(syncPayload.end_time)) },
+        ])}
+        <div class="console-stack">
+          <strong>同步说明</strong>
+          ${textBlock(syncPayload.message_text || JSON.stringify(syncPayload, null, 2))}
+        </div>
+      </section>
+    ` : "";
+
+    return `
+      ${syncSummaryBlock}
+      <section class="detail-section">
+        <h3>运行摘要</h3>
+        ${this.renderDetailFacts([
+          { label: "运行号", value: `<span>${escapeHtml(detail.run_no)}</span>` },
+          { label: "状态", value: statusBadge(detail.status) },
+          { label: "结果数量", value: escapeHtml(String(detail.result_count ?? "-")) },
+          { label: "命中数量", value: escapeHtml(String(detail.hit_count ?? "-")) },
+          { label: "发送数量", value: escapeHtml(String(detail.send_count ?? "-")) },
+          { label: "错误信息", value: escapeHtml(detail.error_message || "-") },
+        ])}
+      </section>
+      <section class="detail-section">
+        <h3>命中结果（前 10 条）</h3>
+        ${resultCards}
+      </section>
+      <section class="detail-section">
+        <h3>短信日志（前 10 条）</h3>
+        ${smsCards}
+      </section>
+    `;
+  },
+  renderContactDrawer(detail) {
+    const sourceLabel = detail.source_system === "manual_ui"
+      ? "手工维护"
+      : detail.source_system === "ywdata.b_dxpt_mdjfyj"
+        ? "导入联系人"
+        : detail.source_system;
+
+    return `
+      <section class="detail-section">
+        <h3>联系人概况</h3>
+        ${this.renderDetailFacts([
+          { label: "姓名", value: escapeHtml(detail.xm || "-") },
+          { label: "职务", value: escapeHtml(detail.zw || "-") },
+          { label: "派出所", value: escapeHtml(detail.sspcs || "-") },
+          { label: "派出所代码", value: `<span>${escapeHtml(detail.sspcsdm || "-")}</span>` },
+          { label: "县区", value: escapeHtml(detail.xq || "-") },
+          { label: "县区代码", value: `<span>${escapeHtml(detail.xqdm || "-")}</span>` },
+          { label: "来源", value: escapeHtml(sourceLabel || "-") },
+          { label: "状态", value: statusBadge(detail.status) },
+          { label: "任务状态", value: escapeHtml(detail.rwzt || "-") },
+          { label: "单位层级", value: escapeHtml(detail.unit_level || "-") },
+          { label: "创建时间", value: escapeHtml(formatTime(detail.created_at)) },
+          { label: "更新时间", value: escapeHtml(formatTime(detail.updated_at)) },
+        ])}
+      </section>
+      <section class="detail-section">
+        <h3>手机号</h3>
+        ${(detail.phones || []).length
+          ? table(
+            ["原始号码", "标准手机号", "状态", "主号"],
+            detail.phones.map((phone) => [
+              escapeHtml(phone.phone_raw || "-"),
+              escapeHtml(phone.mobile || "-"),
+              statusBadge(phone.status),
+              phone.is_primary ? "是" : "否",
+            ])
+          )
+          : emptyState("暂无手机号")}
+      </section>
+      <section class="detail-section">
+        <h3>备注</h3>
+        ${textBlock(detail.remark || "")}
+      </section>
+    `;
+  },
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   app.init().catch((error) => {

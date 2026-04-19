@@ -1,187 +1,87 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>基础管控中心短信监测配置平台</title>
   <link rel="stylesheet" href="/assets/pico.min.css">
-  <style>
-    .app-shell {
-      display: grid;
-      grid-template-columns: fit-content(18rem) minmax(0, 1fr);
-      gap: var(--pico-spacing);
-      align-items: start;
-    }
-
-    .app-sidebar {
-      width: fit-content;
-      min-width: 0;
-    }
-
-    .app-sidebar > article {
-      width: fit-content;
-      max-width: 18rem;
-      margin-bottom: 0;
-    }
-
-    #secondary-nav {
-      width: fit-content;
-      max-width: 100%;
-    }
-
-    #secondary-nav ul {
-      display: grid;
-      gap: calc(var(--pico-spacing) * 0.5);
-      margin: 0;
-      padding: 0;
-    }
-
-    #secondary-nav li {
-      min-width: 0;
-      list-style: none;
-    }
-
-    #secondary-nav button {
-      width: 100%;
-      margin: 0;
-      white-space: nowrap;
-    }
-
-    .app-main {
-      min-width: 0;
-    }
-
-    @media (max-width: 960px) {
-      .app-shell {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .app-sidebar,
-      .app-sidebar > article,
-      #secondary-nav {
-        width: 100%;
-        max-width: none;
-      }
-    }
-
-    /* ---------- Health status pill ---------- */
-    #health-pill {
-      display: inline-block;
-      padding: 0.15rem 0.65rem;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      transition: background 200ms ease;
-    }
-    #health-pill[data-state="ok"]       { color: #0d6b57; background: rgba(13,107,87,0.12); }
-    #health-pill[data-state="bad"]      { color: #a73c2c; background: rgba(167,60,44,0.12); }
-    #health-pill[data-state="checking"] { opacity: 0.6; }
-
-    /* ---------- Flash toast ---------- */
-    #flash {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      z-index: 9999;
-      max-width: 28rem;
-    }
-    #flash article {
-      margin: 0;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-    }
-
-    /* ---------- Detail drawer ---------- */
-    #detail-drawer {
-      max-width: min(92vw, 860px);
-      width: 860px;
-    }
-    #detail-drawer > article {
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    /* ---------- Primary nav wrapping ---------- */
-    #primary-nav ul {
-      flex-wrap: wrap;
-      gap: 0.25rem;
-    }
-
-    /* ---------- Data-card layout helpers ---------- */
-    .card-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-    .card-head h4 { margin-bottom: 0.25rem; }
-
-    .card-meta {
-      margin-bottom: 0.75rem;
-      color: var(--pico-muted-color);
-      line-height: 1.7;
-      font-size: 0.9rem;
-    }
-
-    /* ---------- Responsive table overflow ---------- */
-    figure {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/console-theme.css">
 </head>
-<body>
-  <main class="container-fluid">
-    <article>
-      <header>
-        <p><small>JCGKZX AUTOTASK</small></p>
+<body class="console-body">
+  <main class="console-app">
+    <section class="surface-card surface-card--hero console-masthead">
+      <div class="console-masthead__copy">
+        <p class="console-eyebrow">JCGKZX AUTOTASK</p>
         <h1>基础管控中心短信监测配置平台</h1>
-        <p>统一查看任务、主题、短信与运行记录。</p>
-      </header>
-      <nav aria-label="global actions">
-        <ul>
-          <li><strong id="health-pill">检查中</strong></li>
-        </ul>
-        <ul>
-          <li><button id="refresh-all" class="secondary" type="button">刷新全部</button></li>
-          <li><a href="/logout" role="button" class="outline">退出登录</a></li>
-        </ul>
-      </nav>
-    </article>
+        <p class="console-lead">用更清晰的章节感和更稳定的状态视图，统一查看任务、主题、短信与运行记录。</p>
+        <div class="console-masthead__badges" aria-label="平台能力">
+          <span class="console-tag">主题监测</span>
+          <span class="console-tag">脚本任务</span>
+          <span class="console-tag">短信发送</span>
+          <span class="console-tag">运行追踪</span>
+        </div>
+      </div>
 
-    <article>
-      <nav id="primary-nav" aria-label="一级导航"></nav>
-    </article>
+      <div class="console-masthead__ops">
+        <section class="console-status-card" aria-label="平台状态">
+          <p class="console-eyebrow">System Pulse</p>
+          <div class="console-action-group">
+            <strong id="health-pill" data-state="checking">检查中</strong>
+          </div>
+          <p>保留现有调度、筛选与发送链路，只重做控制台的视觉节奏与信息层级。</p>
+        </section>
 
-    <div class="app-shell">
-      <aside class="app-sidebar">
-        <article>
-          <header>
-            <p><small>模块导航</small></p>
-            <strong id="secondary-title">总览</strong>
+        <div class="console-action-group" aria-label="全局操作">
+          <button id="refresh-all" class="secondary" type="button">刷新全部</button>
+          <a href="/logout" role="button" class="outline">退出登录</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="console-layout">
+      <aside class="console-sidebar">
+        <article class="surface-card console-sidebar__card">
+          <header class="console-sidebar__header">
+            <p class="console-eyebrow">Primary Navigation</p>
+            <h2 class="console-sidebar__title">控制台章节</h2>
+          </header>
+          <nav id="primary-nav" aria-label="一级导航"></nav>
+        </article>
+
+        <article class="surface-card console-sidebar__card">
+          <header class="console-sidebar__header">
+            <p class="console-eyebrow">Section Focus</p>
+            <h2 class="console-sidebar__title" id="secondary-title">总览</h2>
           </header>
           <nav id="secondary-nav" aria-label="二级导航"></nav>
         </article>
+
+        <article class="surface-card surface-card--dark console-sidebar__note">
+          <p class="console-eyebrow">Template Preview</p>
+          <h3>首版模板先服务总览页。</h3>
+          <p>本轮统一壳层、卡片、表格、抽屉和状态样式，其他业务页后续按同一模板逐步迁移。</p>
+        </article>
       </aside>
 
-      <section class="app-main">
-        <article id="section-header"></article>
-        <div id="content-area"></div>
+      <section class="console-stage">
+        <article id="section-header" class="surface-card console-section-card"></article>
+        <div id="content-area" class="console-content"></div>
       </section>
     </div>
 
     <section id="flash" hidden role="status" aria-live="polite"></section>
   </main>
 
-  <dialog id="detail-drawer">
-    <article>
-      <header>
+  <dialog id="detail-drawer" class="console-drawer">
+    <article class="console-drawer__surface">
+      <header class="console-drawer__header">
         <div>
-          <p><small id="drawer-eyebrow">详情</small></p>
+          <p class="console-eyebrow" id="drawer-eyebrow">详情</p>
           <h2 id="drawer-title">详情面板</h2>
         </div>
-        <button id="drawer-close" type="button" class="secondary" aria-label="关闭详情">Close</button>
+        <button id="drawer-close" type="button" class="secondary" aria-label="关闭详情">关闭</button>
       </header>
-      <div id="drawer-body"></div>
+      <div class="console-drawer__body" id="drawer-body"></div>
     </article>
   </dialog>
 
