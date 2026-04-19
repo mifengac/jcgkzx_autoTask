@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import lru_cache
 import json
 from pathlib import Path
-from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,15 +18,10 @@ class Settings(BaseSettings):
     auth_session_ttl_hours: int = 12
 
     database_url: str | None = None
+    theme_db_url: str | None = Field(default=None, alias="THEME_DB_URL")
     db_schema: str = "jcgkzx_autotask"
     db_echo: bool = False
     auto_create_tables: bool = False
-
-    kingbase_host: str | None = Field(default=None, alias="KINGBASE_HOST")
-    kingbase_port: int | None = Field(default=None, alias="KINGBASE_PORT")
-    kingbase_dbname: str | None = Field(default=None, alias="KINGBASE_DBNAME")
-    kingbase_user: str | None = Field(default=None, alias="KINGBASE_USER")
-    kingbase_password: str | None = Field(default=None, alias="KINGBASE_PASSWORD")
 
     upload_root: Path = Path("uploads")
     script_upload_dirname: str = "scripts"
@@ -54,9 +48,9 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    @field_validator("kingbase_port", mode="before")
+    @field_validator("database_url", "theme_db_url", mode="before")
     @classmethod
-    def empty_port_to_none(cls, value: object) -> object:
+    def empty_string_to_none(cls, value: object) -> object:
         if value == "":
             return None
         return value
@@ -65,29 +59,7 @@ class Settings(BaseSettings):
     def sqlalchemy_database_uri(self) -> str:
         if self.database_url:
             return self.database_url
-
-        missing = [
-            name
-            for name, value in {
-                "KINGBASE_HOST": self.kingbase_host,
-                "KINGBASE_PORT": self.kingbase_port,
-                "KINGBASE_DBNAME": self.kingbase_dbname,
-                "KINGBASE_USER": self.kingbase_user,
-                "KINGBASE_PASSWORD": self.kingbase_password,
-            }.items()
-            if value in (None, "")
-        ]
-        if missing:
-            raise RuntimeError(
-                "Missing database settings. Provide DATABASE_URL or set: "
-                + ", ".join(missing)
-            )
-
-        password = quote_plus(str(self.kingbase_password))
-        return (
-            f"postgresql+psycopg2://{self.kingbase_user}:{password}"
-            f"@{self.kingbase_host}:{self.kingbase_port}/{self.kingbase_dbname}"
-        )
+        raise RuntimeError("Missing database settings. Provide DATABASE_URL.")
 
     @property
     def script_upload_dir(self) -> Path:

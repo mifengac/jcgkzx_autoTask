@@ -263,7 +263,7 @@ class ThemeSource(TimestampMixin, Base):
     __tablename__ = "theme_source"
     __table_args__ = (
         CheckConstraint(
-            "source_type IN ('dsjfx_case_list')",
+            "source_type IN ('dsjfx_case_list', 'db_sql_select', 'kingbase_multi_sql')",
             name="ck_theme_source_type",
         ),
         CheckConstraint("interval_value > 0", name="ck_theme_source_interval_value"),

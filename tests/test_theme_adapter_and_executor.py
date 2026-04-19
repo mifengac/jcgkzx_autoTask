@@ -14,6 +14,7 @@ from autotask_api.services.theme_executor import (
     build_theme_message,
     build_theme_oracle_eid,
     theme_dedup_since,
+    topic_allows_row,
 )
 
 
@@ -79,6 +80,14 @@ class ThemeAdapterAndExecutorTests(unittest.TestCase):
         current_time = datetime(2026, 4, 4, 10, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
         since = theme_dedup_since(topic, current_time)
         self.assertEqual(since, datetime(2026, 4, 4, 9, 30, 0))
+
+    def test_topic_allows_row_when_bound_to_target_topic_codes(self) -> None:
+        row = {"target_topic_codes": ["dxpt_u24"]}
+        self.assertTrue(topic_allows_row(SimpleNamespace(theme_code="dxpt_u24"), row))
+        self.assertFalse(topic_allows_row(SimpleNamespace(theme_code="dxpt_u36"), row))
+
+    def test_topic_allows_row_without_target_topic_codes(self) -> None:
+        self.assertTrue(topic_allows_row(SimpleNamespace(theme_code="dxpt_u24"), {}))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,25 @@
 import { api, jsonRequest, parseJson } from "../core/api.js";
 import { emptyState, escapeHtml, formatTime, jsonBlock, metricCard, optionList, panel, statusBadge, table } from "../core/ui.js";
 
+function sourceTypeOptions(currentType) {
+  const value = currentType || "dsjfx_case_list";
+  return [
+    `<option value="dsjfx_case_list" ${value === "dsjfx_case_list" ? "selected" : ""}>dsjfx_case_list</option>`,
+    `<option value="db_sql_select" ${value === "db_sql_select" ? "selected" : ""}>db_sql_select</option>`,
+    `<option value="kingbase_multi_sql" ${value === "kingbase_multi_sql" ? "selected" : ""}>kingbase_multi_sql</option>`,
+  ].join("");
+}
+
+function sourceConfigHint(sourceType) {
+  if (sourceType === "kingbase_multi_sql") {
+    return "KingbaseV8 多 SQL 数据源：连接串默认读取 THEME_DB_URL，未配置时复用 DATABASE_URL；这里只需配置 queries[].query_code、queries[].topic_codes、queries[].query、field_map；每条 SQL 只支持单条只读 SELECT/WITH。";
+  }
+  if (sourceType === "db_sql_select") {
+    return "数据库型数据源建议配置 credential_ref.url_env、query、time_range、fetch_profile 和 field_map；查询只支持单条只读 SELECT/WITH。";
+  }
+  return "HTTP 型数据源沿用 dsjfx_case_list 配置，通常包含 credential_ref、login_url、api_url、time_range 和 fetch_profile。";
+}
+
 function currentSource(app) {
   return app.getCurrentSource();
 }
@@ -57,7 +76,7 @@ function renderSourceForm(app) {
         <div>
           <label for="source_type">数据源类型</label>
           <select id="source_type" name="source_type">
-            <option value="dsjfx_case_list" selected>dsjfx_case_list</option>
+            ${sourceTypeOptions(value?.source_type)}
           </select>
         </div>
         <div>
@@ -78,6 +97,7 @@ function renderSourceForm(app) {
       </div>
       <div>
         <label for="source_config">数据源配置 JSON</label>
+        <div id="source-config-hint" style="margin:4px 0 8px;color:var(--muted);font-size:.9rem;">${escapeHtml(sourceConfigHint(value?.source_type || "dsjfx_case_list"))}</div>
         <textarea id="source_config" name="source_config" rows="12">${escapeHtml(JSON.stringify(value?.source_config || {}, null, 2))}</textarea>
       </div>
       <div>
@@ -192,6 +212,14 @@ export const sourcesSection = {
 
     const form = document.querySelector("#source-form");
     if (form) {
+      const sourceTypeSelect = form.querySelector("#source_type");
+      const sourceConfigHintNode = form.querySelector("#source-config-hint");
+      if (sourceTypeSelect && sourceConfigHintNode) {
+        sourceTypeSelect.addEventListener("change", () => {
+          sourceConfigHintNode.textContent = sourceConfigHint(sourceTypeSelect.value || "dsjfx_case_list");
+        });
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {

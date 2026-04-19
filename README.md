@@ -116,7 +116,7 @@ docker compose down
 `.env.example` 中已经整理了部署所需的核心变量，建议至少确认以下几组：
 
 - 应用：`APP_NAME`、`APP_PORT`、`TZ`
-- Kingbase：`DATABASE_URL` 或 `KINGBASE_*`
+- Kingbase / PostgreSQL 兼容平台库：`DATABASE_URL`
 - 建表开关：`AUTO_CREATE_TABLES`
 - Oracle：`ORACLE_DSN`、`ORACLE_USER`、`ORACLE_PASSWORD`
 - 短信账号：`SMS_USERID`、`SMS_PASSWORD`、`SMS_USERPORT`
@@ -124,7 +124,7 @@ docker compose down
 
 说明：
 
-- 如果使用 `DATABASE_URL`，则 `KINGBASE_*` 可以留空。
+- `DATABASE_URL` 是平台数据库连接串；`kingbase_multi_sql` 主题数据源默认优先使用 `THEME_DB_URL`，未配置时复用 `DATABASE_URL`。
 - 如果数据库中还没有平台表，可以在首次启动前把 `AUTO_CREATE_TABLES=true`，建表完成后改回 `false`。
 - 容器内访问宿主机数据库时，不要把主机地址写成 `127.0.0.1`。
 
@@ -151,6 +151,42 @@ docker compose down
   "base_params": {}
 }
 ```
+
+新增的 `db_sql_select` 数据源可以配置为外部数据库只读 SQL 查询，建议使用环境变量传递连接字符串，例如 `THEME_DB_URL`：
+
+```json
+{
+  "credential_ref": {
+    "url_env": "THEME_DB_URL"
+  },
+  "query": "SELECT id, case_no, alarm_time, dept_code, dept_name, content, replies, address FROM alert_view WHERE alarm_time >= :begin_time AND alarm_time < :end_time ORDER BY alarm_time DESC",
+  "time_range": {
+    "mode": "rolling_hours",
+    "hours_back": 2
+  },
+  "fetch_profile": {
+    "chunk_size": 500,
+    "max_rows": 5000
+  },
+  "field_map": {
+    "event_key": "id",
+    "case_no": "case_no",
+    "alarmTime": "alarm_time",
+    "callTime": "alarm_time",
+    "sspcsdm": "dept_code",
+    "dutyDeptName": "dept_name",
+    "caseContents": "content",
+    "replies": "replies",
+    "occurAddress": "address"
+  }
+}
+```
+
+说明：
+
+- `db_sql_select` 只支持单条只读 `SELECT/WITH`，不支持多语句和写操作。
+- 查询默认可使用参数：`begin_time`、`end_time`、`begin_time_text`、`end_time_text`、`limit`、`source_code`。
+- 查询结果会按 `field_map` 映射到平台统一字段，后续的主题过滤、接收人匹配和短信发送都复用现有逻辑。
 
 主题过滤表达式示例：
 
@@ -206,3 +242,11 @@ docker compose config
 ## 离线部署
 
 内网 Ubuntu 22.04 部署步骤单独放在 [DEPLOY.md](DEPLOY.md)。
+
+## kingbase_multi_sql 数据源
+
+主题监测支持 `kingbase_multi_sql` 数据源类型：一个 KingbaseV8/PostgreSQL 兼容连接下配置多条只读 SQL，一次运行只创建一个数据库连接，按顺序执行多条 SQL，并通过 `queries[].topic_codes` 把结果分发给指定主题。
+
+该数据源默认从环境变量读取连接串，优先使用 `THEME_DB_URL`，未配置时复用平台库 `DATABASE_URL`。
+
+配置说明见 [docs/0419_kingbase_multi_sql_theme_source.md](docs/0419_kingbase_multi_sql_theme_source.md)。

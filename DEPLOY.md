@@ -51,7 +51,8 @@ cp .env.example .env
 
 - `IMAGE_NAME`
 - `APP_PORT`
-- `DATABASE_URL` 或 `KINGBASE_*`
+- `DATABASE_URL`
+- `THEME_DB_URL`（可选，供 `kingbase_multi_sql` 主题数据源优先使用）
 - `ORACLE_*`
 - `SMS_*`
 
@@ -180,7 +181,8 @@ AUTO_CREATE_TABLES=false
 
 - `IMAGE_NAME`：compose 运行时使用的镜像标签，必须和导入的镜像标签一致
 - `APP_PORT`：宿主机暴露端口
-- `DATABASE_URL` 或 `KINGBASE_HOST` / `KINGBASE_PORT` / `KINGBASE_DBNAME` / `KINGBASE_USER` / `KINGBASE_PASSWORD`
+- `DATABASE_URL`：平台数据库连接串，必填
+- `THEME_DB_URL`：主题数据库连接串，可选；`kingbase_multi_sql` 优先使用它，未配置时复用 `DATABASE_URL`
 - `DB_SCHEMA`：平台表所在 schema
 - `AUTO_CREATE_TABLES`：是否自动建表
 - `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD`

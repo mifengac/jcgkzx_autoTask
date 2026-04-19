@@ -405,7 +405,7 @@ class ThemeTopicRead(BaseModel):
 class ThemeSourceCreate(JsonPayloadMixin):
     source_name: str
     source_code: str
-    source_type: Literal["dsjfx_case_list"] = "dsjfx_case_list"
+    source_type: Literal["dsjfx_case_list", "db_sql_select", "kingbase_multi_sql"] = "dsjfx_case_list"
     enabled: bool = True
     source_config: dict[str, Any] = Field(default_factory=dict)
     schedule: ThemeSourceSchedule
@@ -414,7 +414,7 @@ class ThemeSourceCreate(JsonPayloadMixin):
 class ThemeSourceUpdate(JsonPayloadMixin):
     source_name: str | None = None
     source_code: str | None = None
-    source_type: Literal["dsjfx_case_list"] | None = None
+    source_type: Literal["dsjfx_case_list", "db_sql_select", "kingbase_multi_sql"] | None = None
     enabled: bool | None = None
     source_config: dict[str, Any] | None = None
     schedule: ThemeSourceSchedule | None = None
