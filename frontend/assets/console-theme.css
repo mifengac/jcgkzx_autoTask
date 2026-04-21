@@ -108,7 +108,8 @@ body.console-body .muted {
 
 /* Layout Container */
 .console-app {
-  width: min(1560px, calc(100vw - 48px));
+  width: calc(100vw - 32px);
+  max-width: none;
   margin: 0 auto;
   padding: 32px 0 84px;
 }
@@ -313,8 +314,8 @@ body.console-body .muted {
 /* Layout Grids */
 .console-layout {
   display: grid;
-  grid-template-columns: minmax(19rem, 21rem) minmax(0, 1fr);
-  gap: 36px;
+  grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
 }
 
@@ -357,15 +358,20 @@ body.console-body .muted {
 .console-nav-button {
   width: 100%;
   justify-content: flex-start;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border: 1px solid transparent;
-  border-radius: 20px;
+  border-radius: 16px;
   background: transparent;
   color: var(--console-ink-soft);
   text-align: left;
-  font-size: 1.02rem;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.console-nav-button__label {
+  display: block;
+  width: 100%;
 }
 
 .console-nav-button:hover,
@@ -388,6 +394,13 @@ body.console-body .muted {
 .console-stage {
   display: grid;
   gap: 28px;
+  width: 100%;
+  min-width: 0;
+}
+
+.console-content,
+.console-content > .grid {
+  width: 100%;
   min-width: 0;
 }
 
@@ -399,6 +412,37 @@ body.console-body .muted {
   margin-top: 0.35rem;
   font-size: clamp(2.2rem, 3.5vw, 3.6rem);
   line-height: 1.1;
+}
+
+.console-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.console-tab-button {
+  min-height: 2.6rem;
+  padding: 0.65rem 1rem;
+  border-color: var(--console-border-strong);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--console-ink-deep);
+  box-shadow: none;
+}
+
+.console-tab-button:hover,
+.console-tab-button:focus-visible {
+  transform: none;
+  background: #ffffff;
+  color: var(--console-ink-deep);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.console-tab-button.is-active {
+  border-color: var(--console-dark);
+  background: var(--console-darkest);
+  color: var(--console-surface-strong);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
 }
 
 .console-section-card__lead {
@@ -432,6 +476,7 @@ body.console-body .muted {
 .console-body :where(button, [type="button"], [type="submit"], a[role="button"]):focus-visible {
   transform: translateY(-2px);
   background: var(--console-accent-hover);
+  color: var(--console-surface-strong);
   box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
 }
 
@@ -444,6 +489,7 @@ body.console-body .muted {
 .console-body :where(button, [type="button"], [type="submit"], a[role="button"]).secondary:hover {
   background: #ffffff;
   border-color: var(--console-accent-soft);
+  color: var(--console-ink-deep);
   box-shadow: 0 6px 16px rgba(0,0,0,0.06);
 }
 
@@ -467,6 +513,36 @@ body.console-body .muted {
 .console-body :where(button, [type="button"], [type="submit"], a[role="button"]).outline:hover {
   background: rgba(255, 255, 255, 0.5);
   border-color: var(--console-ink-muted);
+  color: var(--console-ink-deep);
+}
+
+.console-body [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  margin: 12px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.console-body [role="group"] > * {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.console-body [role="group"] :where(button, [type="button"], [type="submit"], a[role="button"]) {
+  position: relative;
+  width: auto;
+  min-width: max-content;
+  border-radius: 16px;
+  white-space: nowrap;
+}
+
+.console-body [role="group"] :where(button, [type="button"], [type="submit"], a[role="button"]):hover,
+.console-body [role="group"] :where(button, [type="button"], [type="submit"], a[role="button"]):focus-visible {
+  z-index: 2;
+  transform: none;
 }
 
 .console-body :where(button, [type="button"], [type="submit"], a[role="button"]):disabled {
@@ -493,6 +569,17 @@ body.console-body .muted {
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
+.console-body :where(input[type="checkbox"], input[type="radio"]) {
+  width: auto;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--console-accent);
+  box-shadow: none;
+  vertical-align: middle;
+}
+
 .console-body :where(input, select, textarea):focus {
   border-color: var(--console-focus);
   background: #ffffff;
@@ -506,6 +593,53 @@ body.console-body .muted {
   color: var(--console-ink-deep);
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+.switch-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--console-border-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+}
+
+.switch-field span {
+  display: grid;
+  gap: 3px;
+}
+
+.switch-field strong {
+  color: var(--console-ink-deep);
+}
+
+.switch-field small {
+  color: var(--console-ink-muted);
+  font-weight: 500;
+}
+
+.contact-import-box {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--console-accent-ring);
+  border-radius: 18px;
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.contact-import-box strong {
+  display: block;
+  color: var(--console-ink-deep);
+}
+
+.contact-import-box small {
+  color: var(--console-ink-soft);
 }
 
 /* Metrics & Stats */
@@ -572,7 +706,25 @@ body.console-body .muted {
 }
 
 .panel-card {
+  min-width: 0;
   padding: 32px;
+}
+
+.panel-card--span-1 { grid-column: span 1; }
+.panel-card--span-2 { grid-column: span 2; }
+.panel-card--span-3 { grid-column: span 3; }
+.panel-card--span-4 { grid-column: span 4; }
+.panel-card--span-5 { grid-column: span 5; }
+.panel-card--span-6 { grid-column: span 6; }
+.panel-card--span-7 { grid-column: span 7; }
+.panel-card--span-8 { grid-column: span 8; }
+.panel-card--span-9 { grid-column: span 9; }
+.panel-card--span-10 { grid-column: span 10; }
+.panel-card--span-11 { grid-column: span 11; }
+.panel-card--span-12 { grid-column: span 12; }
+
+.panel-card__body {
+  min-width: 0;
 }
 
 .panel-card__header {
@@ -700,8 +852,8 @@ body.console-body .muted {
 
 /* Drawers / Dialogs */
 .console-drawer {
-  width: min(94vw, 1020px);
-  max-width: 1020px;
+  width: min(96vw, 1680px);
+  max-width: none;
   padding: 0;
   border: none;
   background: transparent;
@@ -714,10 +866,12 @@ body.console-body .muted {
 }
 
 .console-drawer__surface {
-  max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
   border: 1px solid rgba(255,255,255,0.7);
-  border-radius: 36px;
+  border-radius: 24px;
   background: var(--console-bg);
   box-shadow: 0 40px 80px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255,255,255,0.8);
 }
@@ -730,22 +884,32 @@ body.console-body .muted {
   justify-content: space-between;
   align-items: flex-start;
   gap: 24px;
-  padding: 32px 40px 24px;
+  flex: 0 0 auto;
+  padding: 24px 32px 20px;
   border-bottom: 1px solid var(--console-border);
-  background: rgba(247, 248, 249, 0.85);
+  background: rgba(247, 248, 249, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
 .console-drawer__header h2 {
   margin-top: 0.35rem;
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: clamp(1.65rem, 2.5vw, 2.6rem);
   line-height: 1.1;
   color: var(--console-ink-deep);
 }
 
+.console-drawer__header button {
+  flex: 0 0 auto;
+  position: sticky;
+  right: 0;
+}
+
 .console-drawer__body {
-  padding: 32px 40px 48px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 32px 40px;
 }
 
 /* Drawer Detail Grid */
@@ -764,6 +928,7 @@ body.console-body .muted {
 }
 
 .fact-item {
+  min-width: 0;
   display: grid;
   gap: 8px;
   padding: 18px 20px;
@@ -786,6 +951,13 @@ body.console-body .muted {
   text-transform: uppercase;
 }
 
+.fact-item span,
+.drawer-card span,
+.drawer-card__summary,
+.console-pre {
+  overflow-wrap: anywhere;
+}
+
 /* Details Cards */
 .drawer-card-list {
   display: grid;
@@ -793,6 +965,7 @@ body.console-body .muted {
 }
 
 .drawer-card {
+  min-width: 0;
   display: grid;
   gap: 16px;
   padding: 24px 28px;

@@ -2,14 +2,25 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from autotask_api.api.serializers import serialize_contact
 from autotask_api.database import get_db
 from autotask_api.models import OrgContact, OrgContactPhone
-from autotask_api.schemas import ContactCreate, ContactRead, ContactSearchResponse, ContactUpdate
+from autotask_api.schemas import (
+    ContactCreate,
+    ContactImportResponse,
+    ContactRead,
+    ContactSearchResponse,
+    ContactUpdate,
+)
+from autotask_api.services.contact_xlsx_import import (
+    ContactImportFatalError,
+    XLSX_CONTACT_IMPORT_SOURCE,
+    import_contacts_from_xlsx,
+)
 from autotask_api.services.rule_engine import normalize_mobile
 from autotask_api.services.task_fields import normalize_non_null_text_input
 
@@ -18,6 +29,7 @@ router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 MANUAL_CONTACT_SOURCE = "manual_ui"
 IMPORT_CONTACT_SOURCE = "ywdata.b_dxpt_mdjfyj"
+XLSX_IMPORT_CONTACT_SOURCE = XLSX_CONTACT_IMPORT_SOURCE
 
 
 def normalize_optional_text(value: str | None) -> str | None:
@@ -160,6 +172,7 @@ def search_contacts(
     unit_level: str | None = Query(default=None),
     mobile: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> ContactSearchResponse:
     stmt = contact_query()
@@ -209,7 +222,7 @@ def search_contacts(
 
     count_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
     total = db.scalar(count_stmt) or 0
-    contacts = list(db.scalars(stmt.order_by(OrgContact.id.desc()).limit(limit)).unique())
+    contacts = list(db.scalars(stmt.order_by(OrgContact.id.desc()).offset(offset).limit(limit)).unique())
     return ContactSearchResponse(
         items=[serialize_contact(contact) for contact in contacts],
         total=total,
@@ -219,6 +232,36 @@ def search_contacts(
 @router.get("/{contact_id}", response_model=ContactRead)
 def get_contact(contact_id: int, db: Session = Depends(get_db)) -> ContactRead:
     return serialize_contact(get_contact_or_404(db, contact_id))
+
+
+@router.post("/import-xlsx", response_model=ContactImportResponse)
+async def import_contacts_xlsx(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> ContactImportResponse:
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only .xlsx files are supported.",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+
+    try:
+        result = import_contacts_from_xlsx(db, content, filename=filename)
+    except ContactImportFatalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return ContactImportResponse(**result)
 
 
 @router.post("", response_model=ContactRead, status_code=status.HTTP_201_CREATED)

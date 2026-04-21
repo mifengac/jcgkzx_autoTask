@@ -101,7 +101,13 @@ function renderSourceForm(app) {
         <textarea id="source_config" name="source_config" rows="12">${escapeHtml(JSON.stringify(value?.source_config || {}, null, 2))}</textarea>
       </div>
       <div>
-        <label><input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}><span>启用数据源</span></label>
+        <label class="switch-field">
+          <input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}>
+          <span>
+            <strong>启用数据源</strong>
+            <small>打开后参与调度和手动执行，关闭后保留配置但不执行。</small>
+          </span>
+        </label>
       </div>
       <div role="group">
         <button type="submit">${app.state.editingSourceId ? "更新数据源" : "创建数据源"}</button>

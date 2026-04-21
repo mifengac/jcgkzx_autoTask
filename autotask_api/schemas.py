@@ -297,6 +297,25 @@ class ContactSearchResponse(BaseModel):
     total: int
 
 
+class ContactImportIssue(BaseModel):
+    sheet: str
+    row: int | None = None
+    message: str
+    values: dict[str, str] = Field(default_factory=dict)
+
+
+class ContactImportResponse(BaseModel):
+    filename: str
+    source_system: str
+    total_rows: int
+    imported_rows: int
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    error_count: int
+    errors: list[ContactImportIssue] = Field(default_factory=list)
+
+
 class ThemeSourceSchedule(JsonPayloadMixin):
     interval_value: int
     interval_unit: Literal["minute", "hour"]

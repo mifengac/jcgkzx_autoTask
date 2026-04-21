@@ -1,14 +1,14 @@
-import { api } from "./core/api.js";
-import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, table, textBlock, truncateText } from "./core/ui.js";
-import { contactsSection } from "./sections/contacts.js";
-import { overviewSection } from "./sections/overview.js";
-import { resultsSection } from "./sections/results.js";
-import { runsSection } from "./sections/runs.js";
-import { smsLogsSection } from "./sections/smsLogs.js";
-import { sourcesSection } from "./sections/sources.js";
-import { tasksSection } from "./sections/tasks.js";
-import { templatesSection } from "./sections/templates.js";
-import { topicsSection } from "./sections/topics.js";
+import { api } from "./core/api.js?v=20260421-ui2";
+import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, table, textBlock, truncateText } from "./core/ui.js?v=20260421-ui2";
+import { contactsSection } from "./sections/contacts.js?v=20260421-ui2";
+import { overviewSection } from "./sections/overview.js?v=20260421-ui2";
+import { resultsSection } from "./sections/results.js?v=20260421-ui2";
+import { runsSection } from "./sections/runs.js?v=20260421-ui2";
+import { smsLogsSection } from "./sections/smsLogs.js?v=20260421-ui2";
+import { sourcesSection } from "./sections/sources.js?v=20260421-ui2";
+import { tasksSection } from "./sections/tasks.js?v=20260421-ui2";
+import { templatesSection } from "./sections/templates.js?v=20260421-ui2";
+import { topicsSection } from "./sections/topics.js?v=20260421-ui2";
 
 const sections = [
   overviewSection,
@@ -110,8 +110,10 @@ const state = {
       status: "all",
       mobile: "",
       limit: 100,
+      offset: 0,
     },
   },
+  contactImportResult: null,
   editingContactId: null,
   contactDetail: null,
   drawer: {
@@ -957,7 +959,6 @@ Object.assign(app, {
           <li>
             <button class="console-nav-button${state.route.primary === item.key ? " is-active" : ""}" type="button" data-primary="${item.key}">
               <span class="console-nav-button__label">${escapeHtml(item.label)}</span>
-              <span class="console-nav-button__meta">${escapeHtml(item.description)}</span>
             </button>
           </li>
         `).join("")}
@@ -976,7 +977,6 @@ Object.assign(app, {
           <li>
             <button class="console-nav-button console-nav-button--secondary${state.route.secondary === tab.key ? " is-active" : ""}" type="button" data-secondary="${tab.key}">
               <span class="console-nav-button__label">${escapeHtml(tab.label)}</span>
-              <span class="console-nav-button__meta">${escapeHtml(tab.hint || "切换视图")}</span>
             </button>
           </li>
         `).join("")}
@@ -990,7 +990,6 @@ Object.assign(app, {
 
     const metaPills = [
       `<span class="context-pill">当前子页 · ${escapeHtml(activeTab.label)}</span>`,
-      activeTab.hint ? `<span class="context-pill">${escapeHtml(activeTab.hint)}</span>` : "",
     ];
     if (state.selectedSourceId && state.route.primary !== "sources") {
       metaPills.push(`<span class="context-pill">当前数据源 · ${escapeHtml(this.getCurrentSource()?.source_name || `#${state.selectedSourceId}`)}</span>`);
@@ -1007,6 +1006,13 @@ Object.assign(app, {
         <div>
           <p class="section-kicker">章节 ${String(sectionIndex).padStart(2, "0")}</p>
           <h2>${escapeHtml(section.label)}</h2>
+          <div class="console-section-tabs" aria-label="当前章节视图">
+            ${section.tabs.map((tab) => `
+              <button class="console-tab-button${state.route.secondary === tab.key ? " is-active" : ""}" type="button" data-secondary="${tab.key}">
+                ${escapeHtml(tab.label)}
+              </button>
+            `).join("")}
+          </div>
         </div>
         <div class="console-stack">
           <p class="console-section-card__lead">${escapeHtml(section.description)}</p>
@@ -1014,6 +1020,11 @@ Object.assign(app, {
         </div>
       </div>
     `;
+    dom.sectionHeader.querySelectorAll("[data-secondary]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this.navigate(state.route.primary, button.dataset.secondary);
+      });
+    });
   },
   flash(message, isError = false) {
     if (!message) {

@@ -1,5 +1,5 @@
 import { api, jsonRequest } from "../core/api.js";
-import { emptyState, escapeHtml, formatTime, metricCard, panel, statusBadge, table } from "../core/ui.js";
+import { emptyState, escapeHtml, formatTime, metricCard, panel, renderPagination, statusBadge, table } from "../core/ui.js";
 
 function contactDisplayName(contact) {
   return contact?.xm || contact?.sspcs || `#${contact?.id || "-"}`;
@@ -11,6 +11,9 @@ function sourceLabel(sourceSystem) {
   }
   if (sourceSystem === "ywdata.b_dxpt_mdjfyj") {
     return "导入联系人";
+  }
+  if (sourceSystem === "xlsx_contact_import") {
+    return "Excel导入";
   }
   return sourceSystem || "-";
 }
@@ -82,6 +85,7 @@ function renderDirectoryFilters(app) {
             <option value="" ${!query.source_system ? "selected" : ""}>全部</option>
             <option value="manual_ui" ${query.source_system === "manual_ui" ? "selected" : ""}>手工维护</option>
             <option value="ywdata.b_dxpt_mdjfyj" ${query.source_system === "ywdata.b_dxpt_mdjfyj" ? "selected" : ""}>导入联系人</option>
+            <option value="xlsx_contact_import" ${query.source_system === "xlsx_contact_import" ? "selected" : ""}>Excel导入</option>
           </select>
         </div>
         <div>
@@ -90,6 +94,12 @@ function renderDirectoryFilters(app) {
             <option value="all" ${query.status === "all" ? "selected" : ""}>全部</option>
             <option value="active" ${query.status === "active" ? "selected" : ""}>启用</option>
             <option value="inactive" ${query.status === "inactive" ? "selected" : ""}>停用</option>
+          </select>
+        </div>
+        <div>
+          <label for="contact_dir_limit">每页条数</label>
+          <select id="contact_dir_limit" name="limit">
+            ${[50, 100, 200, 500].map((item) => `<option value="${item}" ${Number(query.limit || 100) === item ? "selected" : ""}>${item}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -102,35 +112,105 @@ function renderDirectoryFilters(app) {
   `;
 }
 
-function renderDirectoryTable(app) {
-  const items = app.state.contactDirectory.items || [];
-  if (!items.length) {
-    return emptyState("当前筛选条件下没有联系人。");
+function renderImportResult(app) {
+  const result = app.state.contactImportResult;
+  if (!result) {
+    return "";
   }
+  const summary = `
+    <div class="metric-grid">
+      ${metricCard("总行数", result.total_rows ?? 0)}
+      ${metricCard("已导入", result.imported_rows ?? 0)}
+      ${metricCard("新增", result.created_count ?? 0)}
+      ${metricCard("覆盖", result.updated_count ?? 0)}
+      ${metricCard("跳过", result.skipped_count ?? 0)}
+    </div>
+  `;
+  const errors = result.errors || [];
+  const errorBlock = errors.length
+    ? `<div style="margin-top:16px;">${table(
+        ["Sheet", "行号", "原因", "姓名", "派出所", "电话"],
+        errors.map((item) => [
+          escapeHtml(item.sheet || "-"),
+          escapeHtml(item.row ?? "-"),
+          escapeHtml(item.message || "-"),
+          escapeHtml(item.values?.姓名 || "-"),
+          escapeHtml(item.values?.派出所 || "-"),
+          escapeHtml(item.values?.电话号码 || "-"),
+        ])
+      )}</div>`
+    : "";
+  return `${summary}${errorBlock}`;
+}
 
-  return table(
-    ["姓名", "职务", "派出所", "县区", "任务状态", "手机号", "来源", "状态", "更新时间", "操作"],
-    items.map((item) => {
-      const readonly = isReadOnlyContact(item);
-      const actionButtons = [
-        `<button class="outline" type="button" data-action="contact-view" data-id="${item.id}">查看</button>`,
-        `<button class="outline" type="button" data-action="contact-edit" data-id="${item.id}" ${readonly ? "disabled" : ""}>编辑</button>`,
-        `<button class="outline" type="button" data-action="contact-toggle-status" data-status="${item.status === "active" ? "inactive" : "active"}" data-id="${item.id}" ${readonly ? "disabled" : ""}>${item.status === "active" ? "停用" : "启用"}</button>`,
-      ].join(" ");
-      return [
-        `<strong>${escapeHtml(contactDisplayName(item))}</strong>`,
-        escapeHtml(item.zw || "-"),
-        escapeHtml(item.sspcs || "-"),
-        escapeHtml(item.xq || "-"),
-        escapeHtml(item.rwzt || "-"),
-        escapeHtml((item.phones || []).map((phone) => phone.mobile).join(", ") || "-"),
-        `${escapeHtml(sourceLabel(item.source_system))}${readonly ? '<br><span>导入只读</span>' : ""}`,
-        statusBadge(item.status),
-        escapeHtml(formatTime(item.updated_at)),
-        actionButtons,
-      ];
-    })
-  );
+function renderImportForm(app) {
+  return `
+    <form id="contact-import-form" class="contact-import-box">
+      <div>
+        <strong>批量导入联系人</strong>
+        <small>支持 .xlsx 文件，按 云城、云安、罗定、新兴、郁南、市局 分 sheet 导入。</small>
+      </div>
+      <div class="grid" style="grid-template-columns: minmax(18rem, 1fr) auto; align-items:end;">
+        <div>
+          <label for="contact_import_file">xlsx文件</label>
+          <input id="contact_import_file" name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        </div>
+        <div>
+          <button type="submit">批量导入</button>
+        </div>
+      </div>
+    </form>
+    <div style="margin-top:16px;">${renderImportResult(app)}</div>
+  `;
+}
+
+function renderDirectoryTable(app) {
+  const page = app.state.contactDirectory;
+  const items = page.items || [];
+  if (!items.length) {
+    return `
+      ${emptyState("当前筛选条件下没有联系人。")}
+      ${renderPagination({
+        total: page.total,
+        limit: Number(page.query.limit || 100),
+        offset: Number(page.query.offset || 0),
+        action: "contact-directory-page",
+      })}
+    `;
+  }
+  const pagination = renderPagination({
+    total: page.total,
+    limit: Number(page.query.limit || 100),
+    offset: Number(page.query.offset || 0),
+    action: "contact-directory-page",
+  });
+
+  return `
+    ${pagination}
+    ${table(
+      ["姓名", "职务", "派出所", "县区", "手机号", "来源", "状态", "更新时间", "操作"],
+      items.map((item) => {
+        const readonly = isReadOnlyContact(item);
+        const actionButtons = [
+          `<button class="outline" type="button" data-action="contact-view" data-id="${item.id}">查看</button>`,
+          `<button class="outline" type="button" data-action="contact-edit" data-id="${item.id}" ${readonly ? "disabled" : ""}>编辑</button>`,
+          `<button class="outline" type="button" data-action="contact-toggle-status" data-status="${item.status === "active" ? "inactive" : "active"}" data-id="${item.id}" ${readonly ? "disabled" : ""}>${item.status === "active" ? "停用" : "启用"}</button>`,
+        ].join(" ");
+        return [
+          `<strong>${escapeHtml(contactDisplayName(item))}</strong>`,
+          escapeHtml(item.zw || "-"),
+          escapeHtml(item.sspcs || "-"),
+          escapeHtml(item.xq || "-"),
+          escapeHtml((item.phones || []).map((phone) => phone.mobile).join(", ") || "-"),
+          `${escapeHtml(sourceLabel(item.source_system))}${readonly ? '<br><span>导入只读</span>' : ""}`,
+          statusBadge(item.status),
+          escapeHtml(formatTime(item.updated_at)),
+          actionButtons,
+        ];
+      })
+    )}
+    ${pagination}
+  `;
 }
 
 function renderPhoneRow(phone, index, readonly) {
@@ -325,12 +405,32 @@ export const contactsSection = {
 
     return `
       <div class="grid" style="grid-template-columns: repeat(12, minmax(0, 1fr)); align-items:start;">
-        ${panel("联系人概况", "看联系人状态。", renderDirectorySummary(app), { span: 4 })}
-        ${panel("联系人目录", "支持多条件筛选。", `${renderDirectoryFilters(app)}<div style="margin-top:16px;">${renderDirectoryTable(app)}</div>`, { span: 8 })}
+        ${panel("联系人目录", "导入、筛选和分页集中处理。", `${renderImportForm(app)}<div style="margin-top:18px;">${renderDirectoryFilters(app)}</div><div style="margin-top:16px;">${renderDirectoryTable(app)}</div>`, { span: 12 })}
+        ${panel("联系人概况", "看联系人状态。", renderDirectorySummary(app), { span: 12 })}
       </div>
     `;
   },
   bind(app) {
+    const importForm = document.querySelector("#contact-import-form");
+    if (importForm) {
+      importForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = new FormData(importForm);
+        try {
+          const result = await api("/api/contacts/import-xlsx", {
+            method: "POST",
+            body: payload,
+          });
+          app.state.contactImportResult = result;
+          await app.loadContactDirectory();
+          app.flash(`导入完成：新增 ${result.created_count}，覆盖 ${result.updated_count}，跳过 ${result.skipped_count}。`);
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
+      });
+    }
+
     const filterForm = document.querySelector("#contact-directory-filter-form");
     if (filterForm) {
       filterForm.addEventListener("submit", async (event) => {
@@ -346,7 +446,8 @@ export const contactsSection = {
             source_system: payload.get("source_system") || "",
             status: payload.get("status") || "all",
             mobile: payload.get("mobile") || "",
-            limit: app.state.contactDirectory.query.limit || 100,
+            limit: Number(payload.get("limit") || app.state.contactDirectory.query.limit || 100),
+            offset: 0,
           });
           app.render();
         } catch (error) {
@@ -368,6 +469,7 @@ export const contactsSection = {
             status: "all",
             mobile: "",
             limit: 100,
+            offset: 0,
           });
           app.flash("联系人筛选已重置。");
           app.render();
@@ -382,6 +484,23 @@ export const contactsSection = {
         app.state.editingContactId = null;
         app.state.contactDetail = null;
         app.navigate("contacts", "editor");
+      });
+    });
+
+    document.querySelectorAll("[data-action='contact-directory-page']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const direction = button.dataset.direction;
+          const query = app.state.contactDirectory.query;
+          const limit = Number(query.limit || 100);
+          const offset = Number(query.offset || 0);
+          await app.loadContactDirectory({
+            offset: direction === "next" ? offset + limit : Math.max(0, offset - limit),
+          });
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
       });
     });
 
