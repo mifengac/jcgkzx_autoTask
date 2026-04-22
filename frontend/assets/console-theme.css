@@ -516,6 +516,21 @@ body.console-body .muted {
   color: var(--console-ink-deep);
 }
 
+.console-body :where(button, [type="button"], [type="submit"], a[role="button"]).danger {
+  border-color: var(--console-danger-border);
+  background: var(--console-danger-bg);
+  color: var(--console-danger);
+  box-shadow: none;
+}
+
+.console-body :where(button, [type="button"], [type="submit"], a[role="button"]).danger:hover,
+.console-body :where(button, [type="button"], [type="submit"], a[role="button"]).danger:focus-visible {
+  border-color: var(--console-danger);
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--console-danger);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.16);
+}
+
 .console-body [role="group"] {
   display: flex;
   flex-wrap: wrap;
@@ -917,6 +932,12 @@ body.console-body .muted {
 
 .console-table tbody tr:hover td {
   background: rgba(241, 245, 249, 0.5);
+}
+
+.console-table :where(button, [type="button"], [type="submit"], a[role="button"]),
+.console-table :where(button, [type="button"], [type="submit"], a[role="button"]):hover,
+.console-table :where(button, [type="button"], [type="submit"], a[role="button"]):focus-visible {
+  transform: none;
 }
 
 .console-table tbody tr:last-child td {

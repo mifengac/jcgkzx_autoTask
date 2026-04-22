@@ -368,7 +368,7 @@ DATABASE_URL=postgresql+psycopg2://用户名:密码@Kingbase地址:端口/数据
 
 ### 2.3 source_config JSON
 
-生产配置建议先只监测 `u12` 到 `u72`。
+生产配置推荐直接判断 `transfer_status` 是否包含 `未移交`，这和早期脚本的命中逻辑一致。`transfer_status_code` 仍然保留，用于阶段去重。
 
 ```json
 {
@@ -391,7 +391,7 @@ DATABASE_URL=postgresql+psycopg2://用户名:密码@Kingbase地址:端口/数据
     {
       "query_code": "dxpt_transfer_all",
       "topic_codes": ["dxpt_transfer_reminder"],
-      "query": "SELECT * FROM stdata.v_dxpt_mdjf_transfer_monitor WHERE registered_at >= CAST(:start_date AS timestamp) AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72') ORDER BY registered_at DESC LIMIT :limit"
+      "query": "SELECT * FROM stdata.v_dxpt_mdjf_transfer_monitor WHERE registered_at >= CAST(:start_date AS timestamp) AND transfer_status LIKE '%未移交%' ORDER BY registered_at DESC LIMIT :limit"
     }
   ]
 }
@@ -409,13 +409,18 @@ DATABASE_URL=postgresql+psycopg2://用户名:密码@Kingbase地址:端口/数据
 | `field_map.message_text` | 映射为短信正文 |
 | `queries[0].topic_codes` | 指定结果只交给 `dxpt_transfer_reminder` 主题 |
 
-本地测试如果库里只有超过 72 小时的数据，可以临时把 SQL 改成包含 `u72plus`：
+这条 SQL 会命中所有包含 `未移交` 三个字的状态，包括：
 
-```sql
-AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72', 'u72plus')
+```text
+12小时内未移交
+24小时内未移交
+36小时内未移交
+48小时内未移交
+72小时内未移交
+超出72小时仍未移交
 ```
 
-生产是否包含 `u72plus`，按业务要求决定。如果不希望超 72 小时继续提醒，就不要加入 `u72plus`。
+如果后续新增类似 `超出96小时仍未移交` 的状态，只要文字仍包含 `未移交`，也会自动命中。
 
 ## 3. 主题配置
 
@@ -456,23 +461,13 @@ AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72', 'u72plus')
 
 ```json
 {
-  "field": "transfer_status_code",
-  "op": "in",
-  "value": ["u12", "u24", "u36", "u48", "u72"]
+  "field": "transfer_status",
+  "op": "contains",
+  "value": "未移交"
 }
 ```
 
-这个配置表示：一个主题处理所有阶段，但只处理未移交阶段。
-
-如果本地测试需要查看超 72 小时数据，可以临时改成：
-
-```json
-{
-  "field": "transfer_status_code",
-  "op": "in",
-  "value": ["u12", "u24", "u36", "u48", "u72", "u72plus"]
-}
-```
+这个配置表示：一个主题处理所有阶段，但只处理 `transfer_status` 中包含 `未移交` 的记录。它和早期 `examples/0123_dxpt_ceshi.py` 脚本的过滤逻辑一致。
 
 去重逻辑示例：
 
@@ -652,7 +647,7 @@ ORDER BY registered_at DESC
 LIMIT 50;
 ```
 
-如果这条没有数据，说明当前库里没有最近 72 小时内的记录，系统按 `u12/u24/u36/u48/u72` 查询时也会没有数据。
+如果这条没有数据，说明当前库里没有最近 72 小时内的记录。但由于当前配置是按 `transfer_status LIKE '%未移交%'` 查询，超过 72 小时仍未移交的数据仍然会被系统查到。
 
 本地测试库如果都是历史数据，可以临时查：
 
@@ -728,14 +723,19 @@ matched_count 是否大于 0
 ```text
 1. 视图是否有数据
 2. source_config 的 start_date 是否太晚
-3. SQL 是否只过滤了 u12/u24/u36/u48/u72，而本地库只有 u72plus
+3. SQL 是否使用了 transfer_status LIKE '%未移交%'
 4. THEME_DB_URL 是否连到了正确库
 ```
 
-如果本地只想验证流程，可以临时把数据源 SQL 改成：
+可以直接在 Kingbase 客户端执行数据源 SQL 验证：
 
 ```sql
-AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72', 'u72plus')
+SELECT *
+FROM stdata.v_dxpt_mdjf_transfer_monitor
+WHERE registered_at >= CAST('2026-01-01' AS timestamp)
+  AND transfer_status LIKE '%未移交%'
+ORDER BY registered_at DESC
+LIMIT 50;
 ```
 
 ### 6.4 测试主题命中
@@ -752,6 +752,7 @@ AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72', 'u72plus')
 
 ```text
 source_event_id
+transfer_status
 transfer_status_code
 sspcsdm
 message_text
@@ -763,7 +764,7 @@ message_text
 1. 主题是否启用
 2. 主题编码是否是 dxpt_transfer_reminder
 3. 数据源 queries[0].topic_codes 是否包含 dxpt_transfer_reminder
-4. 主题 filter_expr 是否把当前 transfer_status_code 过滤掉
+4. 主题 filter_expr 是否配置为 transfer_status contains 未移交
 ```
 
 ### 6.5 测试接收人匹配
@@ -821,7 +822,7 @@ message_text
 1. Oracle 短信平台连接配置正确
 2. 主题去重模式是 permanent
 3. 去重键模板是 {source_event_id}:{transfer_status_code}
-4. 数据源 SQL 没有误包含不需要提醒的 done 状态
+4. 数据源 SQL 使用 transfer_status LIKE '%未移交%'，不会包含已移交状态
 5. 联系人规则不会把不该通知的层级包含进去
 ```
 
@@ -866,15 +867,23 @@ WHERE registered_at >= now() - interval '3 day';
 
 ### 7.2 数据源运行成功但没有结果
 
-常见原因是数据源 SQL 只查 `u12` 到 `u72`，但库里只有 `u72plus`。
+常见原因是数据源 SQL 或主题过滤条件没有按 `transfer_status` 包含 `未移交` 配置。
 
-测试时可以临时加入：
+推荐数据源 SQL 条件：
 
-```text
-u72plus
+```sql
+AND transfer_status LIKE '%未移交%'
 ```
 
-生产是否加入，按业务要求决定。
+推荐主题过滤 JSON：
+
+```json
+{
+  "field": "transfer_status",
+  "op": "contains",
+  "value": "未移交"
+}
+```
 
 ### 7.3 提示 CONCAT 类型错误
 
@@ -902,22 +911,18 @@ CAST('文字' AS text) || COALESCE(字段, CAST('' AS text))
 
 ### 7.5 不想提醒超 72 小时怎么办
 
-数据源 SQL 和主题过滤 JSON 都不要包含：
+当前推荐配置会提醒 `超出72小时仍未移交`，因为它包含 `未移交`。
 
-```text
-u72plus
+如果不想提醒超 72 小时，需要改回按编码过滤，例如：
+
+```sql
+AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72')
 ```
 
 ### 7.6 想提醒超 72 小时怎么办
 
-数据源 SQL 增加：
+当前推荐配置已经会提醒超 72 小时仍未移交，因为：
 
-```text
-u72plus
-```
-
-主题过滤 JSON 也增加：
-
-```json
-"u72plus"
+```sql
+transfer_status LIKE '%未移交%'
 ```

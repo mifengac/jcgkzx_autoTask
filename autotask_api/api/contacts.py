@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -19,6 +20,7 @@ from autotask_api.schemas import (
 from autotask_api.services.contact_xlsx_import import (
     ContactImportFatalError,
     XLSX_CONTACT_IMPORT_SOURCE,
+    create_contact_import_template_xlsx,
     import_contacts_from_xlsx,
 )
 from autotask_api.services.rule_engine import normalize_mobile
@@ -171,7 +173,7 @@ def search_contacts(
     status_text: str = Query(default="active", alias="status"),
     unit_level: str | None = Query(default=None),
     mobile: str | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=20, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> ContactSearchResponse:
@@ -226,6 +228,19 @@ def search_contacts(
     return ContactSearchResponse(
         items=[serialize_contact(contact) for contact in contacts],
         total=total,
+    )
+
+
+@router.get("/import-template")
+def download_contact_import_template() -> Response:
+    content = create_contact_import_template_xlsx()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="contacts_import_template.xlsx"',
+            "Cache-Control": "no-store",
+        },
     )
 
 

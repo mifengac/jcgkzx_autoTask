@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autotask_api.config import get_settings
@@ -490,6 +490,15 @@ class OrgContact(TimestampMixin, Base):
     phones: Mapped[list["OrgContactPhone"]] = relationship(
         back_populates="contact", cascade="all, delete-orphan", order_by="OrgContactPhone.id.asc()"
     )
+
+
+def normalize_org_contact_before_flush(_mapper: Any, _connection: Any, target: OrgContact) -> None:
+    if target.remark in (None, ""):
+        target.remark = EMPTY_TEXT_SENTINEL
+
+
+event.listen(OrgContact, "before_insert", normalize_org_contact_before_flush)
+event.listen(OrgContact, "before_update", normalize_org_contact_before_flush)
 
 
 class OrgContactPhone(TimestampMixin, Base):

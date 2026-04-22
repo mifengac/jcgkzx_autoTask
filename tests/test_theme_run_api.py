@@ -6,7 +6,7 @@ import unittest
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
 
@@ -16,8 +16,16 @@ from autotask_api.api.theme_runs import (
     list_theme_runs,
     list_theme_sms_logs,
 )
+from autotask_api.api.theme_sources import delete_theme_topic
 from autotask_api.database import Base
-from autotask_api.models import ThemeSmsSendLog, ThemeSource, ThemeSourceRun, ThemeTopic, ThemeTopicResult
+from autotask_api.models import (
+    ThemeReceiverRule,
+    ThemeSmsSendLog,
+    ThemeSource,
+    ThemeSourceRun,
+    ThemeTopic,
+    ThemeTopicResult,
+)
 
 
 def create_test_engine():
@@ -229,6 +237,34 @@ class ThemeRunApiTests(unittest.TestCase):
             )
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0].run_no, "theme_1_run_1")
+
+    def test_delete_theme_topic_removes_rules_results_and_sms_logs(self) -> None:
+        with self.session_factory() as db:
+            topic_id = db.scalar(select(ThemeTopic.id).where(ThemeTopic.theme_code == "mental_case"))
+            source_count_before = db.scalar(select(func.count()).select_from(ThemeSource))
+            run_count_before = db.scalar(select(func.count()).select_from(ThemeSourceRun))
+            db.add(
+                ThemeReceiverRule(
+                    topic_id=topic_id,
+                    rule_name="Station rule",
+                    rule_type="field_match",
+                    source_field="sspcsdm",
+                    target_match_field="sspcsdm",
+                    target_mobile_field="mobile",
+                    filter_json="{}",
+                    fixed_receivers_json="[]",
+                )
+            )
+            db.commit()
+
+            delete_theme_topic(topic_id, db)
+
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeTopic).where(ThemeTopic.id == topic_id)), 0)
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeReceiverRule).where(ThemeReceiverRule.topic_id == topic_id)), 0)
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeTopicResult).where(ThemeTopicResult.topic_id == topic_id)), 0)
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeSmsSendLog).where(ThemeSmsSendLog.topic_id == topic_id)), 0)
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeSource)), source_count_before)
+            self.assertEqual(db.scalar(select(func.count()).select_from(ThemeSourceRun)), run_count_before)
 
 
 if __name__ == "__main__":

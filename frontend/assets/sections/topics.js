@@ -2,9 +2,9 @@ import { api, jsonRequest, parseJson, splitLines } from "../core/api.js";
 import { emptyState, escapeHtml, jsonBlock, optionList, panel, statusBadge } from "../core/ui.js";
 
 const DXPT_STAGE_FILTER = {
-  field: "transfer_status_code",
-  op: "in",
-  value: ["u12", "u24", "u36", "u48", "u72"],
+  field: "transfer_status",
+  op: "contains",
+  value: "未移交",
 };
 
 function sourceFilter(app) {
@@ -54,6 +54,7 @@ function renderTopicCards(app) {
           <div role="group">
             <button class="outline" type="button" data-action="topic-select-card" data-id="${topic.id}">选中</button>
             <button class="outline" type="button" data-action="topic-edit" data-id="${topic.id}">编辑</button>
+            <button class="outline danger" type="button" data-action="topic-delete" data-id="${topic.id}" data-name="${escapeHtml(topic.theme_name)}">删除主题</button>
           </div>
         </article>
       `).join("")}
@@ -289,6 +290,29 @@ export const topicsSection = {
         app.state.topicEditorCreating = false;
         await app.setSelectedTopic(Number(button.dataset.id));
         app.navigate("topics", "editor");
+      });
+    });
+
+    document.querySelectorAll("[data-action='topic-delete']").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const topicId = Number(button.dataset.id);
+        const topicName = button.dataset.name || `#${topicId}`;
+        if (!window.confirm(`确定删除主题“${topicName}”吗？该主题下的接收规则、命中结果和短信发送记录也会一起删除。`)) {
+          return;
+        }
+        try {
+          await api(`/api/theme-topics/${topicId}`, { method: "DELETE" });
+          if (app.state.selectedTopicId === topicId) {
+            app.state.selectedTopicId = null;
+            app.state.editingTopicRuleId = null;
+            app.state.topicEditorCreating = false;
+          }
+          await app.reloadThemeSources();
+          app.flash("主题已删除。");
+          app.render();
+        } catch (error) {
+          app.flash(error.message, true);
+        }
       });
     });
 

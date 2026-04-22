@@ -21,7 +21,7 @@ const DXPT_SINGLE_TOPIC_SOURCE_CONFIG = {
     {
       query_code: "dxpt_transfer_all",
       topic_codes: ["dxpt_transfer_reminder"],
-      query: "SELECT * FROM stdata.v_dxpt_mdjf_transfer_monitor WHERE registered_at >= CAST(:start_date AS timestamp) AND transfer_status_code IN ('u12', 'u24', 'u36', 'u48', 'u72') ORDER BY registered_at DESC LIMIT :limit",
+      query: "SELECT * FROM stdata.v_dxpt_mdjf_transfer_monitor WHERE registered_at >= CAST(:start_date AS timestamp) AND transfer_status LIKE '%未移交%' ORDER BY registered_at DESC LIMIT :limit",
     },
   ],
 };

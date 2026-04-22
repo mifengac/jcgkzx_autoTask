@@ -19,14 +19,16 @@ from autotask_api.api.contacts import (
     MANUAL_CONTACT_SOURCE,
     XLSX_IMPORT_CONTACT_SOURCE,
     create_contact,
+    download_contact_import_template,
     search_contacts,
     update_contact,
 )
 from autotask_api.database import Base
 from autotask_api.models import OrgContact, OrgContactPhone
 from autotask_api.schemas import ContactCreate, ContactUpdate
-from autotask_api.services.contact_xlsx_import import import_contacts_from_xlsx
+from autotask_api.services.contact_xlsx_import import create_contact_import_template_xlsx, import_contacts_from_xlsx
 from autotask_api.services.rule_engine import resolve_rule_mobiles
+from autotask_api.services.task_fields import EMPTY_TEXT_SENTINEL
 
 
 def create_test_engine():
@@ -408,6 +410,57 @@ class ContactApiTests(unittest.TestCase):
         self.assertEqual(contact.sspcs, "234派出所")
         self.assertEqual(contact.sspcsdm, "445302000000")
         self.assertEqual(contact.unit_level, "county")
+        self.assertEqual(contact.remark, EMPTY_TEXT_SENTINEL)
+
+    def test_contact_import_template_contains_notes_and_sample_rows(self) -> None:
+        workbook = create_contact_import_template_xlsx()
+        with ZipFile(BytesIO(workbook)) as zip_file:
+            workbook_xml = zip_file.read("xl/workbook.xml").decode("utf-8")
+            first_sheet_xml = zip_file.read("xl/worksheets/sheet1.xml").decode("utf-8")
+
+        self.assertIn("云城", workbook_xml)
+        self.assertIn("FFFF0000", first_sheet_xml)
+        self.assertIn("必填", first_sheet_xml)
+        self.assertIn("张三", first_sheet_xml)
+        self.assertIn("13800000000", first_sheet_xml)
+
+    def test_org_contact_empty_remark_is_normalized_before_flush(self) -> None:
+        with self.session_factory() as db:
+            contact = OrgContact(
+                source_system=XLSX_IMPORT_CONTACT_SOURCE,
+                source_pk="remark-none-test",
+                unit_level="county",
+                xm="空备注联系人",
+                raw_lxdh="13800000009",
+                status="active",
+                remark=None,
+            )
+            blank_contact = OrgContact(
+                source_system=XLSX_IMPORT_CONTACT_SOURCE,
+                source_pk="remark-blank-test",
+                unit_level="county",
+                xm="空字符串备注联系人",
+                raw_lxdh="13800000010",
+                status="active",
+                remark="",
+            )
+            db.add_all([contact, blank_contact])
+            db.commit()
+            db.refresh(contact)
+            db.refresh(blank_contact)
+
+        self.assertEqual(contact.remark, EMPTY_TEXT_SENTINEL)
+        self.assertEqual(blank_contact.remark, EMPTY_TEXT_SENTINEL)
+
+    def test_download_contact_import_template_response(self) -> None:
+        response = download_contact_import_template()
+
+        self.assertEqual(
+            response.media_type,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("contacts_import_template.xlsx", response.headers["content-disposition"])
+        self.assertGreater(len(response.body), 0)
 
     def test_manual_station_contact_matches_field_match_rule(self) -> None:
         rule = SimpleNamespace(

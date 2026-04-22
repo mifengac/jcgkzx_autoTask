@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 import re
+from html import escape as xml_escape
 from typing import Any
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
@@ -12,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
 from autotask_api.models import OrgContact, OrgContactPhone
+from autotask_api.services.task_fields import normalize_non_null_text_input
 
 
 XLSX_CONTACT_IMPORT_SOURCE = "xlsx_contact_import"
@@ -32,9 +34,132 @@ XLSX_NS = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 RELS_NS = {"rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 OFFICE_REL_NS = {"rel": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
 
+TEMPLATE_COLUMN_NOTES_BY_INDEX = (
+    "选填，建议从 1 开始顺序填写。",
+    "必填，填写所属县区名称，应与当前 sheet 对应。",
+    "必填，填写派出所名称；系统会按 sheet 县区匹配 sspcsdm，未匹配时使用县区代码。",
+    "必填，联系人姓名。",
+    "必填，联系人职务或岗位。",
+    "必填，可填写一个或多个大陆手机号，系统会提取有效 11 位手机号。",
+    "选填，导入后写入联系人备注；为空时系统按空备注处理。",
+)
+TEMPLATE_SAMPLE_VALUES_BY_INDEX = (
+    "1",
+    "云城",
+    "123派出所",
+    "张三",
+    "值班员",
+    "13800000000",
+    "示例：可填写分管范围或其它说明",
+)
+
 
 class ContactImportFatalError(RuntimeError):
     pass
+
+
+def xlsx_cell_ref(column_index: int, row_index: int) -> str:
+    letters = ""
+    index = column_index + 1
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return f"{letters}{row_index}"
+
+
+def xlsx_inline_cell(value: Any, column_index: int, row_index: int, *, red: bool = False) -> str:
+    text_value = xml_escape(str(value or ""))
+    cell_ref = xlsx_cell_ref(column_index, row_index)
+    if red:
+        return (
+            f'<c r="{cell_ref}" t="inlineStr"><is><r><rPr><color rgb="FFFF0000"/></rPr>'
+            f"<t>{text_value}</t></r></is></c>"
+        )
+    return f'<c r="{cell_ref}" t="inlineStr"><is><t>{text_value}</t></is></c>'
+
+
+def xlsx_row(values: list[Any], row_index: int, *, red: bool = False) -> str:
+    cells = "".join(xlsx_inline_cell(value, index, row_index, red=red) for index, value in enumerate(values))
+    return f'<row r="{row_index}">{cells}</row>'
+
+
+def xlsx_sheet_xml(headers: tuple[str, ...], notes: list[str], sample: list[str]) -> str:
+    rows = [
+        xlsx_row(list(headers), 1),
+        xlsx_row(notes, 2, red=True),
+        xlsx_row(sample, 3),
+    ]
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" '
+        'activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+        '<cols><col min="1" max="1" width="8" customWidth="1"/>'
+        '<col min="2" max="7" width="28" customWidth="1"/></cols>'
+        f"<sheetData>{''.join(rows)}</sheetData>"
+        "</worksheet>"
+    )
+
+
+def create_contact_import_template_xlsx() -> bytes:
+    headers = EXPECTED_HEADERS
+    notes = list(TEMPLATE_COLUMN_NOTES_BY_INDEX)
+    sample_base = list(TEMPLATE_SAMPLE_VALUES_BY_INDEX)
+
+    workbook_sheets: list[str] = []
+    workbook_rels: list[str] = []
+    content_overrides: list[str] = []
+    sheets: list[tuple[str, str]] = []
+    for index, sheet_name in enumerate(SHEET_COUNTY_CODES.keys(), start=1):
+        workbook_sheets.append(
+            f'<sheet name="{xml_escape(sheet_name)}" sheetId="{index}" r:id="rId{index}"/>'
+        )
+        workbook_rels.append(
+            f'<Relationship Id="rId{index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{index}.xml"/>'
+        )
+        content_overrides.append(
+            f'<Override PartName="/xl/worksheets/sheet{index}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        )
+        sample = list(sample_base)
+        sample[1] = sheet_name
+        sheets.append((f"xl/worksheets/sheet{index}.xml", xlsx_sheet_xml(headers, notes, sample)))
+
+    workbook_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f"<sheets>{''.join(workbook_sheets)}</sheets></workbook>"
+    )
+    workbook_rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        f"{''.join(workbook_rels)}</Relationships>"
+    )
+    root_rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        "</Relationships>"
+    )
+    content_types_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        f"{''.join(content_overrides)}</Types>"
+    )
+
+    output = BytesIO()
+    with ZipFile(output, "w") as zip_file:
+        zip_file.writestr("[Content_Types].xml", content_types_xml)
+        zip_file.writestr("_rels/.rels", root_rels_xml)
+        zip_file.writestr("xl/workbook.xml", workbook_xml)
+        zip_file.writestr("xl/_rels/workbook.xml.rels", workbook_rels_xml)
+        for path, xml in sheets:
+            zip_file.writestr(path, xml)
+    return output.getvalue()
 
 
 @dataclass(frozen=True)
@@ -379,9 +504,9 @@ def apply_import_contact_fields(
     contact.unit_level = unit_level
     contact.xm = row.xm
     contact.zw = row.zw
-    contact.rwzt = None
+    contact.rwzt = ""
     contact.status = "active"
-    contact.remark = row.remark
+    contact.remark = normalize_non_null_text_input(row.remark)
 
 
 def import_contacts_from_xlsx(db: Session, content: bytes, *, filename: str = "") -> dict[str, Any]:
@@ -399,7 +524,7 @@ def import_contacts_from_xlsx(db: Session, content: bytes, *, filename: str = ""
             "姓名": row.xm or "",
             "职务": row.zw or "",
             "电话号码": row.raw_lxdh or "",
-            "备注": row.remark,
+            "备注": row.remark or "",
         }
         try:
             if not row.xm:

@@ -99,7 +99,7 @@ function renderDirectoryFilters(app) {
         <div>
           <label for="contact_dir_limit">每页条数</label>
           <select id="contact_dir_limit" name="limit">
-            ${[50, 100, 200, 500].map((item) => `<option value="${item}" ${Number(query.limit || 100) === item ? "selected" : ""}>${item}</option>`).join("")}
+            ${[20, 50, 100, 200, 500].map((item) => `<option value="${item}" ${Number(query.limit || 20) === item ? "selected" : ""}>${item}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -150,10 +150,13 @@ function renderImportForm(app) {
         <strong>批量导入联系人</strong>
         <small>支持 .xlsx 文件，按 云城、云安、罗定、新兴、郁南、市局 分 sheet 导入。</small>
       </div>
-      <div class="grid" style="grid-template-columns: minmax(18rem, 1fr) auto; align-items:end;">
+      <div class="grid" style="grid-template-columns: minmax(18rem, 1fr) auto auto; align-items:end;">
         <div>
           <label for="contact_import_file">xlsx文件</label>
           <input id="contact_import_file" name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        </div>
+        <div>
+          <a class="outline" role="button" href="/api/contacts/import-template">导出模板</a>
         </div>
         <div>
           <button type="submit">批量导入</button>
@@ -172,7 +175,7 @@ function renderDirectoryTable(app) {
       ${emptyState("当前筛选条件下没有联系人。")}
       ${renderPagination({
         total: page.total,
-        limit: Number(page.query.limit || 100),
+        limit: Number(page.query.limit || 20),
         offset: Number(page.query.offset || 0),
         action: "contact-directory-page",
       })}
@@ -180,7 +183,7 @@ function renderDirectoryTable(app) {
   }
   const pagination = renderPagination({
     total: page.total,
-    limit: Number(page.query.limit || 100),
+    limit: Number(page.query.limit || 20),
     offset: Number(page.query.offset || 0),
     action: "contact-directory-page",
   });
@@ -446,7 +449,7 @@ export const contactsSection = {
             source_system: payload.get("source_system") || "",
             status: payload.get("status") || "all",
             mobile: payload.get("mobile") || "",
-            limit: Number(payload.get("limit") || app.state.contactDirectory.query.limit || 100),
+            limit: Number(payload.get("limit") || app.state.contactDirectory.query.limit || 20),
             offset: 0,
           });
           app.render();
@@ -468,7 +471,7 @@ export const contactsSection = {
             source_system: "",
             status: "all",
             mobile: "",
-            limit: 100,
+            limit: 20,
             offset: 0,
           });
           app.flash("联系人筛选已重置。");
@@ -492,7 +495,7 @@ export const contactsSection = {
         try {
           const direction = button.dataset.direction;
           const query = app.state.contactDirectory.query;
-          const limit = Number(query.limit || 100);
+          const limit = Number(query.limit || 20);
           const offset = Number(query.offset || 0);
           await app.loadContactDirectory({
             offset: direction === "next" ? offset + limit : Math.max(0, offset - limit),
