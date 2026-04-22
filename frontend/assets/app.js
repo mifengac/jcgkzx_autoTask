@@ -1,14 +1,14 @@
-import { api } from "./core/api.js?v=20260421-ui2";
-import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, table, textBlock, truncateText } from "./core/ui.js?v=20260421-ui2";
-import { contactsSection } from "./sections/contacts.js?v=20260421-ui2";
-import { overviewSection } from "./sections/overview.js?v=20260421-ui2";
-import { resultsSection } from "./sections/results.js?v=20260421-ui2";
-import { runsSection } from "./sections/runs.js?v=20260421-ui2";
-import { smsLogsSection } from "./sections/smsLogs.js?v=20260421-ui2";
-import { sourcesSection } from "./sections/sources.js?v=20260421-ui2";
-import { tasksSection } from "./sections/tasks.js?v=20260421-ui2";
-import { templatesSection } from "./sections/templates.js?v=20260421-ui2";
-import { topicsSection } from "./sections/topics.js?v=20260421-ui2";
+import { api } from "./core/api.js?v=20260421-ui5";
+import { emptyState, escapeHtml, formatTime, jsonBlock, statusBadge, table, textBlock, truncateText } from "./core/ui.js?v=20260421-ui5";
+import { contactsSection } from "./sections/contacts.js?v=20260421-ui5";
+import { overviewSection } from "./sections/overview.js?v=20260421-ui5";
+import { resultsSection } from "./sections/results.js?v=20260421-ui5";
+import { runsSection } from "./sections/runs.js?v=20260421-ui5";
+import { smsLogsSection } from "./sections/smsLogs.js?v=20260421-ui5";
+import { sourcesSection } from "./sections/sources.js?v=20260421-ui5";
+import { tasksSection } from "./sections/tasks.js?v=20260421-ui5";
+import { templatesSection } from "./sections/templates.js?v=20260421-ui5";
+import { topicsSection } from "./sections/topics.js?v=20260421-ui5";
 
 const sections = [
   overviewSection,

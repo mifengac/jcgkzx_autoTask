@@ -1,6 +1,12 @@
 import { api, jsonRequest, parseJson, splitLines } from "../core/api.js";
 import { emptyState, escapeHtml, jsonBlock, optionList, panel, statusBadge } from "../core/ui.js";
 
+const DXPT_STAGE_FILTER = {
+  field: "transfer_status_code",
+  op: "in",
+  value: ["u12", "u24", "u36", "u48", "u72"],
+};
+
 function sourceFilter(app) {
   return `
     <div>
@@ -104,10 +110,13 @@ function renderTopicForm(app) {
       </div>
       <div>
         <label for="filter_expr">命中过滤 JSON</label>
+        <div class="preset-toolbar">
+          <button class="outline" type="button" data-action="topic-dxpt-single-preset">填入矛盾纠纷单主题配置</button>
+        </div>
         <textarea id="filter_expr" name="filter_expr" rows="12">${escapeHtml(JSON.stringify(topic?.filter_expr || {}, null, 2))}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${topic?.enabled ?? true ? "checked" : ""}><span>启用主题</span></label>
+      <div class="state-toggle-grid state-toggle-grid-single">
+        <label class="state-toggle"><input name="enabled" type="checkbox" ${topic?.enabled ?? true ? "checked" : ""}><span>启用主题</span></label>
       </div>
       <div role="group">
         <button type="submit">${topic ? "更新主题" : "创建主题"}</button>
@@ -197,13 +206,16 @@ function renderRuleForm(app) {
       </div>
       <div>
         <label for="filter_json">联系人过滤 JSON</label>
+        <div class="preset-toolbar">
+          <button class="outline" type="button" data-action="topic-rule-dxpt-preset">填入派出所接收规则</button>
+        </div>
         <textarea id="filter_json" name="filter_json" rows="4">${escapeHtml(JSON.stringify(rule?.filter_json || {}, null, 2))}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
-        <label><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
-        <label><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
-        <label><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
+      <div class="state-toggle-grid" aria-label="接收规则开关">
+        <label class="state-toggle"><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
+        <label class="state-toggle"><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
+        <label class="state-toggle"><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
+        <label class="state-toggle"><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
       </div>
       <div role="group">
         <button type="submit">${rule ? "更新规则" : "创建规则"}</button>
@@ -290,6 +302,24 @@ export const topicsSection = {
 
     const topicForm = document.querySelector("#topic-form");
     if (topicForm) {
+      topicForm.querySelector("[data-action='topic-dxpt-single-preset']")?.addEventListener("click", () => {
+        const preferredTemplate = app.state.templates.find((item) => (
+          item.template_code === "dxpt_transfer_template"
+          || String(item.template_content || "").trim() === "{message_text}"
+        ));
+        topicForm.querySelector("#theme_name").value = "矛盾纠纷移交提醒";
+        topicForm.querySelector("#theme_code").value = "dxpt_transfer_reminder";
+        topicForm.querySelector("#priority").value = "100";
+        topicForm.querySelector("#dedup_mode").value = "permanent";
+        topicForm.querySelector("#dedup_window_minutes").value = "";
+        topicForm.querySelector("#dedup_key_template").value = "{source_event_id}:{transfer_status_code}";
+        topicForm.querySelector("#filter_expr").value = JSON.stringify(DXPT_STAGE_FILTER, null, 2);
+        topicForm.querySelector("[name='enabled']").checked = true;
+        if (preferredTemplate) {
+          topicForm.querySelector("#message_template_id").value = String(preferredTemplate.id);
+        }
+      });
+
       topicForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
@@ -333,6 +363,21 @@ export const topicsSection = {
 
     const ruleForm = document.querySelector("#topic-rule-form");
     if (ruleForm) {
+      ruleForm.querySelector("[data-action='topic-rule-dxpt-preset']")?.addEventListener("click", () => {
+        ruleForm.querySelector("#rule_name").value = "按派出所匹配接收人";
+        ruleForm.querySelector("#rule_type").value = "field_match_with_ancestors";
+        ruleForm.querySelector("#source_field").value = "sspcsdm";
+        ruleForm.querySelector("#target_match_field").value = "sspcsdm";
+        ruleForm.querySelector("#priority").value = "100";
+        ruleForm.querySelector("#target_mobile_field").value = "mobile";
+        ruleForm.querySelector("#fixed_receivers").value = "";
+        ruleForm.querySelector("#filter_json").value = "{}";
+        ruleForm.querySelector("[name='enabled']").checked = true;
+        ruleForm.querySelector("[name='include_self']").checked = true;
+        ruleForm.querySelector("[name='include_county']").checked = true;
+        ruleForm.querySelector("[name='include_city']").checked = false;
+      });
+
       ruleForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {

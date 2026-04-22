@@ -75,6 +75,24 @@ class ThemeAdapterAndExecutorTests(unittest.TestCase):
         self.assertEqual(dedup_key, "JQ-002")
         self.assertEqual(oracle_eid, "juvenile_case:JQ-002")
 
+    def test_build_theme_dedup_key_can_include_transfer_stage(self) -> None:
+        topic = SimpleNamespace(
+            dedup_key_template="{source_event_id}:{transfer_status_code}",
+            theme_code="dxpt_transfer_reminder",
+            filter_expr_json="{}",
+        )
+        row = {
+            "event_key": "fallback",
+            "source_event_id": "DXPT-001",
+            "transfer_status_code": "u24",
+        }
+
+        dedup_key = build_theme_dedup_key(topic, row)
+        oracle_eid = build_theme_oracle_eid(topic, dedup_key)
+
+        self.assertEqual(dedup_key, "DXPT-001:u24")
+        self.assertEqual(oracle_eid, "dxpt_transfer_reminder:DXPT-001:u24")
+
     def test_window_dedup_since(self) -> None:
         topic = SimpleNamespace(dedup_mode="window", dedup_window_minutes=30)
         current_time = datetime(2026, 4, 4, 10, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))

@@ -250,3 +250,5 @@ docker compose config
 该数据源默认从环境变量读取连接串，优先使用 `THEME_DB_URL`，未配置时复用平台库 `DATABASE_URL`。
 
 配置说明见 [docs/0419_kingbase_multi_sql_theme_source.md](docs/0419_kingbase_multi_sql_theme_source.md)。
+
+矛盾纠纷移交提醒推荐使用单主题配置：一个数据源、一条基础 SQL、一个主题、一个接收规则，并用 `{source_event_id}:{transfer_status_code}` 做阶段去重。配置步骤见 [docs/0421_dxpt_single_topic_setup.md](docs/0421_dxpt_single_topic_setup.md)。

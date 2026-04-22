@@ -10,7 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from fastapi import HTTPException
-from sqlalchemy import create_engine, event, func, select, text
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.orm import joinedload, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -386,26 +386,28 @@ class ContactApiTests(unittest.TestCase):
         self.assertEqual(contacts[0].zw, "负责人")
         self.assertEqual(contacts[0].remark, "覆盖导入")
 
-    def test_import_xlsx_contacts_reports_unmatched_station(self) -> None:
+    def test_import_xlsx_contacts_falls_back_to_county_code_for_unmatched_station(self) -> None:
         workbook = build_inline_xlsx({
             "云城": [
                 ["序号", "县区", "派出所", "姓名", "职务", "电话号码", "备注"],
-                ["1", "云城区", "不存在派出所", "导入联系人", "值班员", "13800000009", ""],
+                ["1", "云城区", "234派出所", "导入联系人", "值班员", "13800000009", ""],
             ]
         })
         with self.session_factory() as db:
             result = import_contacts_from_xlsx(db, workbook, filename="contacts.xlsx")
-            count = db.scalar(
-                select(func.count()).select_from(OrgContact).where(
-                    OrgContact.source_system == XLSX_IMPORT_CONTACT_SOURCE
-                )
-            )
+            contact = db.scalars(
+                select(OrgContact)
+                .options(joinedload(OrgContact.phones))
+                .where(OrgContact.source_system == XLSX_IMPORT_CONTACT_SOURCE)
+            ).unique().one()
 
-        self.assertEqual(result["created_count"], 0)
-        self.assertEqual(result["imported_rows"], 0)
-        self.assertEqual(result["error_count"], 1)
-        self.assertEqual(count, 0)
-        self.assertIn("派出所未在", result["errors"][0]["message"])
+        self.assertEqual(result["created_count"], 1)
+        self.assertEqual(result["imported_rows"], 1)
+        self.assertEqual(result["error_count"], 0)
+        self.assertEqual(contact.source_pk, "445302000000:13800000009")
+        self.assertEqual(contact.sspcs, "234派出所")
+        self.assertEqual(contact.sspcsdm, "445302000000")
+        self.assertEqual(contact.unit_level, "county")
 
     def test_manual_station_contact_matches_field_match_rule(self) -> None:
         rule = SimpleNamespace(

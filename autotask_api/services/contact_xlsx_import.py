@@ -301,19 +301,20 @@ def resolve_station(
     row: ImportRow,
     station_lookup: dict[str, dict[str, list[StationUnit]]],
 ) -> tuple[str | None, str | None, str]:
+    fallback_unit_level = "city" if row.sheet == "市局" else "county"
     station_name = normalize_text(row.sspcs)
     if not station_name:
-        return None, None, "city" if row.sheet == "市局" else "county"
+        return None, row.county_code, fallback_unit_level
 
     if row.sheet == "市局" and normalize_station_key(station_name) in {"市局", "市公安局", "局机关"}:
-        return station_name, None, "city"
+        return station_name, row.county_code, "city"
 
     matches = station_lookup.get(row.county_code, {}).get(normalize_station_key(station_name), [])
     if len(matches) == 1:
         unit = matches[0]
         return unit.sspcs, unit.sspcsdm, "station"
     if not matches:
-        raise ValueError(f"派出所未在 stdata.b_dic_zzjgdm 中匹配到：{station_name}")
+        return station_name, row.county_code, fallback_unit_level
     raise ValueError(f"派出所名称在 stdata.b_dic_zzjgdm 中存在多条匹配：{station_name}")
 
 
