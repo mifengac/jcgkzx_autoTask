@@ -374,6 +374,12 @@ class ContactApiTests(unittest.TestCase):
         })
         with self.session_factory() as db:
             import_contacts_from_xlsx(db, first_workbook, filename="contacts.xlsx")
+            first_contact = db.scalars(
+                select(OrgContact)
+                .options(joinedload(OrgContact.phones))
+                .where(OrgContact.source_system == XLSX_IMPORT_CONTACT_SOURCE)
+            ).unique().one()
+            first_phone_id = first_contact.phones[0].id
             result = import_contacts_from_xlsx(db, second_workbook, filename="contacts.xlsx")
             contacts = list(db.scalars(
                 select(OrgContact)
@@ -387,6 +393,7 @@ class ContactApiTests(unittest.TestCase):
         self.assertEqual(contacts[0].xm, "导入联系人更新")
         self.assertEqual(contacts[0].zw, "负责人")
         self.assertEqual(contacts[0].remark, "覆盖导入")
+        self.assertEqual(contacts[0].phones[0].id, first_phone_id)
 
     def test_import_xlsx_contacts_falls_back_to_county_code_for_unmatched_station(self) -> None:
         workbook = build_inline_xlsx({

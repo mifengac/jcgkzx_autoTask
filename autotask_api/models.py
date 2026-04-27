@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text, event
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autotask_api.config import get_settings
@@ -505,6 +505,7 @@ class OrgContactPhone(TimestampMixin, Base):
     __tablename__ = "org_contact_phone"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive')", name="ck_org_contact_phone_status"),
+        UniqueConstraint("contact_id", "mobile", name="uq_org_contact_phone_pair"),
         {"schema": SCHEMA},
     )
 

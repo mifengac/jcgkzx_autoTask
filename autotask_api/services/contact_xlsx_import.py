@@ -471,16 +471,18 @@ def find_existing_import_contact(
 
 
 def replace_import_contact_phones(contact: OrgContact, raw_lxdh: str, mobiles: list[str]) -> None:
-    contact.phones.clear()
+    existing_by_mobile = {phone.mobile: phone for phone in contact.phones}
+    desired_phones: list[OrgContactPhone] = []
     for index, mobile in enumerate(mobiles):
-        contact.phones.append(
-            OrgContactPhone(
-                phone_raw=raw_lxdh,
-                mobile=mobile,
-                is_primary=index == 0,
-                status="active",
-            )
-        )
+        phone = existing_by_mobile.get(mobile)
+        if phone is None:
+            phone = OrgContactPhone(mobile=mobile)
+        phone.phone_raw = raw_lxdh
+        phone.mobile = mobile
+        phone.is_primary = index == 0
+        phone.status = "active"
+        desired_phones.append(phone)
+    contact.phones[:] = desired_phones
     contact.raw_lxdh = raw_lxdh
 
 

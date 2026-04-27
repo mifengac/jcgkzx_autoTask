@@ -125,16 +125,19 @@ def ensure_contact_can_be_active(contact_status: str, phones: list[dict[str, str
 
 
 def replace_contact_phones(contact: OrgContact, phones: list[dict[str, str | bool]]) -> None:
-    contact.phones.clear()
+    existing_by_mobile = {phone.mobile: phone for phone in contact.phones}
+    desired_phones: list[OrgContactPhone] = []
     for phone in phones:
-        contact.phones.append(
-            OrgContactPhone(
-                phone_raw=str(phone["phone_raw"]),
-                mobile=str(phone["mobile"]),
-                is_primary=bool(phone["is_primary"]),
-                status=str(phone["status"]),
-            )
-        )
+        mobile = str(phone["mobile"])
+        contact_phone = existing_by_mobile.get(mobile)
+        if contact_phone is None:
+            contact_phone = OrgContactPhone(mobile=mobile)
+        contact_phone.phone_raw = str(phone["phone_raw"])
+        contact_phone.mobile = mobile
+        contact_phone.is_primary = bool(phone["is_primary"])
+        contact_phone.status = str(phone["status"])
+        desired_phones.append(contact_phone)
+    contact.phones[:] = desired_phones
     contact.raw_lxdh = ",".join(str(phone["phone_raw"]) for phone in phones) if phones else None
 
 
