@@ -20,3 +20,9 @@ uploads/
 # Docker archives
 tar
 *.tar
+
+# HAR captures (debug only)
+*.har
+
+# Script packaging temp dirs
+dist_scripts/zq_kshddpt_dsjfx_jq/

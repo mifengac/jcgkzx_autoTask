@@ -10,9 +10,11 @@
 
 import requests
 import psycopg2
+from psycopg2.extras import execute_values
 import json
 import logging
 import os
+import time
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -37,6 +39,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 5
+RETRY_BASE_DELAY = 3
+DB_BATCH_SIZE = 500
 
 
 def _runtime_to_env_value(value: Any) -> str:
@@ -82,6 +88,18 @@ def get_begin_of_day(days_ago: int = 0) -> str:
     date = now_shanghai() - timedelta(days=days_ago)
     return date.strftime("%Y-%m-%d 00:00:00")
 
+
+def _to_text(value: Any) -> Optional[str]:
+    """将任意值转为 TEXT 字符串，兼容 dict/list/bool/None"""
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 class JingqingZhuaqu:
     """舆情数据抓取类"""
     
@@ -103,6 +121,19 @@ class JingqingZhuaqu:
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
             'X-Requested-With': 'XMLHttpRequest'
         })
+    
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+        """带重试的 HTTP 请求，网络抖动不丢数据"""
+        last_exc = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                return self.session.request(method, url, **kwargs)
+            except requests.RequestException as exc:
+                last_exc = exc
+                wait = RETRY_BASE_DELAY * attempt
+                logger.warning(f"请求失败 ({attempt}/{MAX_RETRIES}): {exc}, {wait}秒后重试")
+                time.sleep(wait)
+        raise RuntimeError(f"请求失败，已重试 {MAX_RETRIES} 次: {last_exc}")
     
     def connect_database(self) -> bool:
         """
@@ -229,7 +260,8 @@ class JingqingZhuaqu:
             logger.info(f"登录参数: username={username}, rememberMe={remember_me}")
             
             # 使用data参数发送Form Data，而不是json参数
-            response = self.session.post(
+            response = self._request(
+                'POST',
                 login_url, 
                 data=login_data, 
                 headers=login_headers,
@@ -328,12 +360,7 @@ class JingqingZhuaqu:
             for field in data_fields:
                 field_lower = field.lower()  # 转换为小写进行比较
                 if field_lower not in existing_columns:
-                    if field_lower == 'caseno':
-                        # caseno字段需要唯一约束
-                        alter_sql = f"ALTER TABLE zq_kshddpt_dsjfx_jq ADD COLUMN {field_lower} TEXT UNIQUE"
-                    else:
-                        alter_sql = f"ALTER TABLE zq_kshddpt_dsjfx_jq ADD COLUMN {field_lower} TEXT"
-                    
+                    alter_sql = f"ALTER TABLE zq_kshddpt_dsjfx_jq ADD COLUMN {field_lower} TEXT"
                     cursor.execute(alter_sql)
                     logger.info(f"添加新字段: {field} -> {field_lower}")
             
@@ -343,7 +370,7 @@ class JingqingZhuaqu:
     
     def check_case_exists(self, case_no: str) -> bool:
         """
-        检查caseNo是否已存在于数据库中
+        检查 caseNo 是否已存在于数据库中
         
         Args:
             case_no: 案例编号
@@ -353,7 +380,6 @@ class JingqingZhuaqu:
         """
         try:
             cursor = self.db_conn.cursor()
-            # 使用小写的caseno字段名
             cursor.execute("SELECT 1 FROM zq_kshddpt_dsjfx_jq WHERE caseno = %s", (case_no,))
             return cursor.fetchone() is not None
         except Exception as e:
@@ -362,67 +388,70 @@ class JingqingZhuaqu:
     
     def fetch_data(self) -> List[Dict[str, Any]]:
         """
-        抓取数据
+        分页抓取数据，循环翻页直到拉完或达到上限
         
         Returns:
             List[Dict]: 抓取到的数据列表
         """
-        try:
-            request_config = self.config['request']
-            api_url = request_config['url']
-            params = request_config.get('params', {})
-            # post_data = request_config.get('data', {})
+        request_config = self.config['request']
+        api_url = request_config['url']
+        base_params = dict(request_config.get('params', {}))
+        
+        page_size = int(base_params.get('pageSize', 2000) or 2000)
+        max_pages = int(os.environ.get("ZQ_MAX_PAGES", "10000") or 10000)
+        
+        all_rows: List[Dict[str, Any]] = []
+        page_num = 1
+        
+        logger.info(f"开始分页抓取数据: {api_url} pageSize={page_size}")
+        
+        while page_num <= max_pages:
+            params = dict(base_params)
+            params['pageSize'] = str(page_size)
+            params['pageNum'] = str(page_num)
             
-            # 设置数据请求的请求头
-            # data_headers = {
-            #     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            #     'X-Requested-With': 'XMLHttpRequest',
-            #     'Accept': 'application/json, text/javascript, */*; q=0.01'
-            # }
+            response = self._request('POST', api_url, data=params, timeout=60)
             
-            logger.info(f"开始抓取数据: {api_url}")
-            # logger.info(f"POST参数: {post_data}")
+            logger.info(f"第 {page_num} 页响应状态码: {response.status_code}")
             
-            # 使用POST请求获取数据
-            response = self.session.post(
-                api_url, 
-                data=params, 
-                timeout=30
-            )
+            if response.status_code != 200:
+                raise RuntimeError(
+                    f"数据抓取失败，状态码: {response.status_code}, 响应: {response.text[:200]}"
+                )
             
-            logger.info(f"数据抓取响应状态码: {response.status_code}")
-            
-            if response.status_code == 200:
+            try:
                 data = response.json()
-                logger.info(f"数据抓取响应: {str(data)[:500]}...")  # 打印前500字符用于调试
-                
-                # 检查响应格式: {"total":123,"rows":[{}],"code":0}
-                if data.get('code') == 0:
-                    rows = data.get('rows', [])
-                    total = data.get('total', 0)
-                    
-                    logger.info(f"成功抓取到数据 - 总计: {total} 条，当前批次: {len(rows)} 条")
-                    
-                    if not rows:
-                        logger.warning("响应中的rows为空或不存在")
-                        return []
-                    
-                    return rows
-                else:
-                    logger.error(f"数据抓取失败: code={data.get('code')}, msg={data.get('msg', '未知错误')}")
-                    return []
-            else:
-                logger.error(f"数据抓取失败，状态码: {response.status_code}")
-                logger.error(f"错误响应: {response.text[:200]}")
-                return []
-                
-        except Exception as e:
-            logger.error(f"数据抓取过程出现异常: {e}")
-            return []
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"数据抓取响应不是JSON: {response.text[:200]}") from exc
+            
+            if data.get('code') != 0:
+                raise RuntimeError(
+                    f"数据抓取失败: code={data.get('code')}, msg={data.get('msg', '未知错误')}"
+                )
+            
+            rows = data.get('rows', [])
+            total = int(data.get('total', 0))
+            
+            logger.info(f"第 {page_num} 页: {len(rows)} 条，总计 {total} 条")
+            
+            if not rows:
+                break
+            
+            all_rows.extend(rows)
+            
+            if len(rows) < page_size:
+                break
+            if total and len(all_rows) >= total:
+                break
+            
+            page_num += 1
+        
+        logger.info(f"抓取完成，共 {len(all_rows)} 条，{page_num} 页")
+        return all_rows
     
     def save_data(self, items: List[Dict[str, Any]]) -> int:
         """
-        保存数据到数据库
+        批量保存数据到数据库（execute_values + ON CONFLICT）
         
         Args:
             items: 要保存的数据列表
@@ -430,76 +459,72 @@ class JingqingZhuaqu:
         Returns:
             int: 成功保存的记录数（新增+更新）
         """
-        saved_count = 0
-        updated_count = 0
-        
         if not items:
             logger.warning("没有数据需要保存")
             return 0
         
-        try:
-            cursor = self.db_conn.cursor()
-            
-            # 获取第一条数据的字段，用于确保表结构完整
-            sample_item = items[0]
-            data_fields = list(sample_item.keys())
-            
-            # 确保表包含所有需要的字段
-            self.ensure_table_columns(data_fields)
-            
-            for item in items:
-                # 查找caseNo字段（不区分大小写）
-                case_no = None
-                for key, value in item.items():
-                    if key.lower() == 'caseno':
-                        case_no = value
-                        break
-                
-                if not case_no:
-                    logger.warning("数据缺少caseNo字段，跳过")
+        # 收集所有字段名（小写、去重、保序）
+        all_keys: List[str] = []
+        seen = set()
+        for item in items:
+            for k in item.keys():
+                kl = k.lower()
+                if kl in ('id', 'created_at', 'updated_at'):
                     continue
-
-                # 动态构建字段映射（将字段名转换为小写）
-                fields_mapping = {}  # 原始字段名 -> 小写字段名映射
-                db_fields = []  # 数据库中的字段名（小写）
-                values = []  # 对应的值
-
-                for field_name, field_value in item.items():
-                    db_field_name = field_name.lower()
-                    fields_mapping[field_name] = db_field_name
-                    db_fields.append(db_field_name)
-                    values.append(str(field_value))
-
-                # 检查是否已存在，存在则更新，否则插入
-                if self.check_case_exists(case_no):
-                    set_clauses = ', '.join([f"{field} = %s" for field in db_fields])
-                    update_sql = f"""
-                    UPDATE zq_kshddpt_dsjfx_jq
-                    SET {set_clauses}, updated_at = CURRENT_TIMESTAMP
-                    WHERE caseno = %s
-                    """
-                    cursor.execute(update_sql, values + [case_no])
-                    updated_count += 1
-                    logger.debug(f"成功更新 caseNo: {case_no}，字段映射: {fields_mapping}")
-                else:
-                    placeholders = ', '.join(['%s'] * len(db_fields))
-                    field_names = ', '.join(db_fields)
-
-                    insert_sql = f"""
-                    INSERT INTO zq_kshddpt_dsjfx_jq ({field_names}) 
-                    VALUES ({placeholders})
-                    """
-
-                    cursor.execute(insert_sql, values)
-                    saved_count += 1
-                    logger.debug(f"成功保存 caseNo: {case_no}，字段映射: {fields_mapping}")
-
-            logger.info(f"数据保存完成 - 新增: {saved_count} 条，更新: {updated_count} 条")
-            return saved_count + updated_count
-            
-        except Exception as e:
-            logger.error(f"数据保存过程出现异常: {e}")
-            return saved_count
+                if kl not in seen:
+                    seen.add(kl)
+                    all_keys.append(kl)
+        
+        # 确保表包含所有字段
+        self.ensure_table_columns(all_keys)
+        
+        if 'caseno' not in all_keys:
+            logger.error("数据缺少caseno字段，无法保存")
+            return 0
+        
+        # 构建 upsert SQL：按 caseno 唯一，冲突时仅当新 updatetime >= 旧 updatetime 才更新
+        col_list = ', '.join(f'"{c}"' for c in all_keys)
+        non_key_cols = [c for c in all_keys if c != 'caseno']
+        set_exprs = [f'"{c}" = EXCLUDED."{c}"' for c in non_key_cols]
+        set_exprs.append('updated_at = CURRENT_TIMESTAMP')
+        update_clause = ', '.join(set_exprs)
+        
+        # updatetime 存在时加保护条件：只有新数据 updatetime >= 旧值才更新
+        if 'updatetime' in all_keys:
+            guard = "WHERE zq_kshddpt_dsjfx_jq.updatetime IS NULL OR EXCLUDED.updatetime >= zq_kshddpt_dsjfx_jq.updatetime"
+        else:
+            guard = ""
+        
+        sql = (
+            f'INSERT INTO zq_kshddpt_dsjfx_jq ({col_list}) VALUES %s '
+            f'ON CONFLICT (caseno) DO UPDATE SET {update_clause} {guard}'
+        )
+        
+        # 构建值元组
+        values = []
+        for item in items:
+            row_lower = {k.lower(): v for k, v in item.items()}
+            case_no = row_lower.get('caseno')
+            if not case_no:
+                logger.warning("数据缺少caseno字段，跳过该条")
+                continue
+            tup = tuple(_to_text(row_lower.get(c)) for c in all_keys)
+            values.append(tup)
+        
+        if not values:
+            return 0
+        
+        written = 0
+        cursor = self.db_conn.cursor()
+        try:
+            for i in range(0, len(values), DB_BATCH_SIZE):
+                chunk = values[i:i + DB_BATCH_SIZE]
+                execute_values(cursor, sql, chunk, page_size=DB_BATCH_SIZE)
+                written += len(chunk)
+            logger.info(f"批量保存完成 - 共 {written} 条")
+        finally:
+            cursor.close()
+        return written
     
     def run(self):
         """执行完整的抓取流程"""
@@ -560,7 +585,7 @@ def _first_env(names: List[str], default: Optional[str] = None) -> str:
 
 def load_config_from_env() -> Dict[str, Any]:
     begin_days_ago = int(os.environ.get("ZQ_BEGIN_DAYS_AGO", "3"))
-    page_size = os.environ.get("ZQ_PAGE_SIZE", "99999")
+    page_size = os.environ.get("ZQ_PAGE_SIZE", "2000")
     page_num = os.environ.get("ZQ_PAGE_NUM", "1")
 
     params = {
