@@ -1,4 +1,4 @@
-﻿export function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -46,52 +46,65 @@ export function truncateText(value, max = 72) {
 }
 
 export function emptyState(text) {
-  return `<article><p><em>${escapeHtml(text)}</em></p></article>`;
+  return `
+    <div class="empty-state">
+      <p><em>${escapeHtml(text)}</em></p>
+    </div>
+  `;
 }
 
 export function statusBadge(status) {
   const value = String(status ?? "");
   const body = escapeHtml(value || "-");
-  if (/fail|error/i.test(value)) {
-    return `<mark>${body}</mark>`;
+  let modifier = "";
+
+  if (/(fail|error|invalid|exception|失败|异常|错误|停用)/i.test(value)) {
+    modifier = " status-badge--danger";
+  } else if (/(skip|dry|duplicate|partial|pending|演练|跳过|重复|等待)/i.test(value)) {
+    modifier = " status-badge--warning";
+  } else if (/(success|ok|sent|done|enabled|normal|成功|完成|启用|正常|已发送)/i.test(value)) {
+    modifier = " status-badge--success";
   }
-  if (/skip|dry|duplicate|partial/i.test(value)) {
-    return `<small><strong>${body}</strong></small>`;
-  }
-  return `<small>${body}</small>`;
+
+  return `<span class="status-badge${modifier}">${body}</span>`;
 }
 
 export function panel(title, subtitle, content, options = {}) {
-  const spanMap = {
-    4: "span 4",
-    5: "span 5",
-    7: "span 7",
-    8: "span 8",
-    12: "span 12",
-  };
-  const gridStyle = options.span && spanMap[options.span]
-    ? ` style="grid-column:${spanMap[options.span]};"`
-    : "";
-  const actions = options.actions ? `<div>${options.actions}</div>` : "";
+  const classes = ["surface-card", "panel-card"];
+  if (options.span) {
+    classes.push(`panel-card--span-${options.span}`);
+  }
+  if (options.variant === "dark") {
+    classes.push("surface-card--dark", "panel-card--dark");
+  }
+  if (options.className) {
+    classes.push(options.className);
+  }
+
+  const actions = options.actions ? `<div class="panel-card__actions">${options.actions}</div>` : "";
+
   return `
-    <article${gridStyle}>
-      <header>
-        <div>
+    <article class="${classes.join(" ")}">
+      <header class="panel-card__header">
+        <div class="panel-card__heading">
           <h3>${escapeHtml(title)}</h3>
-          ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
+          ${subtitle ? `<p class="panel-card__subtitle">${escapeHtml(subtitle)}</p>` : ""}
         </div>
         ${actions}
       </header>
-      ${content}
+      <div class="panel-card__body">
+        ${content}
+      </div>
     </article>
   `;
 }
 
-export function metricCard(label, value) {
+export function metricCard(label, value, meta = "") {
   return `
-    <article>
-      <small>${escapeHtml(label)}</small>
-      <h3>${escapeHtml(value)}</h3>
+    <article class="metric-card">
+      <span class="metric-card__label">${escapeHtml(label)}</span>
+      <strong class="metric-card__value">${escapeHtml(value)}</strong>
+      ${meta ? `<span class="metric-card__meta">${escapeHtml(meta)}</span>` : ""}
     </article>
   `;
 }
@@ -125,11 +138,11 @@ export function optionList(items, getLabel, selectedValue, placeholder = "请选
 }
 
 export function jsonBlock(value) {
-  return `<pre>${escapeHtml(JSON.stringify(value ?? {}, null, 2))}</pre>`;
+  return `<pre class="console-pre">${escapeHtml(JSON.stringify(value ?? {}, null, 2))}</pre>`;
 }
 
 export function textBlock(value) {
-  return `<pre>${escapeHtml(value ?? "")}</pre>`;
+  return `<pre class="console-pre">${escapeHtml(value ?? "")}</pre>`;
 }
 
 export function table(headers, rows) {
@@ -138,11 +151,11 @@ export function table(headers, rows) {
     ? rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")
     : `<tr><td colspan="${headers.length}">${emptyState("暂无数据")}</td></tr>`;
   return `
-    <figure>
-      <table>
+    <div class="console-table-wrap">
+      <table class="console-table">
         <thead><tr>${headerHtml}</tr></thead>
         <tbody>${bodyHtml}</tbody>
       </table>
-    </figure>
+    </div>
   `;
 }

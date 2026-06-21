@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from autotask_api.api.serializers import (
@@ -12,7 +12,14 @@ from autotask_api.api.serializers import (
     serialize_theme_topic,
 )
 from autotask_api.database import get_db
-from autotask_api.models import MessageTemplate, ThemeReceiverRule, ThemeSource, ThemeTopic
+from autotask_api.models import (
+    MessageTemplate,
+    ThemeReceiverRule,
+    ThemeSmsSendLog,
+    ThemeSource,
+    ThemeTopic,
+    ThemeTopicResult,
+)
 from autotask_api.schemas import (
     ThemeReceiverRuleCreate,
     ThemeReceiverRuleRead,
@@ -243,6 +250,15 @@ def update_theme_topic(
     db.add(topic)
     db.commit()
     return serialize_theme_topic(get_theme_topic_or_404(db, topic_id))
+
+
+@router.delete("/api/theme-topics/{topic_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_theme_topic(topic_id: int, db: Session = Depends(get_db)) -> None:
+    topic = get_theme_topic_or_404(db, topic_id)
+    db.execute(delete(ThemeSmsSendLog).where(ThemeSmsSendLog.topic_id == topic.id))
+    db.execute(delete(ThemeTopicResult).where(ThemeTopicResult.topic_id == topic.id))
+    db.delete(topic)
+    db.commit()
 
 
 @router.post(

@@ -297,6 +297,25 @@ class ContactSearchResponse(BaseModel):
     total: int
 
 
+class ContactImportIssue(BaseModel):
+    sheet: str
+    row: int | None = None
+    message: str
+    values: dict[str, str] = Field(default_factory=dict)
+
+
+class ContactImportResponse(BaseModel):
+    filename: str
+    source_system: str
+    total_rows: int
+    imported_rows: int
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    error_count: int
+    errors: list[ContactImportIssue] = Field(default_factory=list)
+
+
 class ThemeSourceSchedule(JsonPayloadMixin):
     interval_value: int
     interval_unit: Literal["minute", "hour"]
@@ -405,7 +424,7 @@ class ThemeTopicRead(BaseModel):
 class ThemeSourceCreate(JsonPayloadMixin):
     source_name: str
     source_code: str
-    source_type: Literal["dsjfx_case_list"] = "dsjfx_case_list"
+    source_type: Literal["dsjfx_case_list", "db_sql_select", "kingbase_multi_sql"] = "dsjfx_case_list"
     enabled: bool = True
     source_config: dict[str, Any] = Field(default_factory=dict)
     schedule: ThemeSourceSchedule
@@ -414,7 +433,7 @@ class ThemeSourceCreate(JsonPayloadMixin):
 class ThemeSourceUpdate(JsonPayloadMixin):
     source_name: str | None = None
     source_code: str | None = None
-    source_type: Literal["dsjfx_case_list"] | None = None
+    source_type: Literal["dsjfx_case_list", "db_sql_select", "kingbase_multi_sql"] | None = None
     enabled: bool | None = None
     source_config: dict[str, Any] | None = None
     schedule: ThemeSourceSchedule | None = None

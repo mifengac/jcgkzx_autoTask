@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from autotask_api.config import get_settings
@@ -263,7 +263,7 @@ class ThemeSource(TimestampMixin, Base):
     __tablename__ = "theme_source"
     __table_args__ = (
         CheckConstraint(
-            "source_type IN ('dsjfx_case_list')",
+            "source_type IN ('dsjfx_case_list', 'db_sql_select', 'kingbase_multi_sql')",
             name="ck_theme_source_type",
         ),
         CheckConstraint("interval_value > 0", name="ck_theme_source_interval_value"),
@@ -492,10 +492,20 @@ class OrgContact(TimestampMixin, Base):
     )
 
 
+def normalize_org_contact_before_flush(_mapper: Any, _connection: Any, target: OrgContact) -> None:
+    if target.remark in (None, ""):
+        target.remark = EMPTY_TEXT_SENTINEL
+
+
+event.listen(OrgContact, "before_insert", normalize_org_contact_before_flush)
+event.listen(OrgContact, "before_update", normalize_org_contact_before_flush)
+
+
 class OrgContactPhone(TimestampMixin, Base):
     __tablename__ = "org_contact_phone"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive')", name="ck_org_contact_phone_status"),
+        UniqueConstraint("contact_id", "mobile", name="uq_org_contact_phone_pair"),
         {"schema": SCHEMA},
     )
 

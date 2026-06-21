@@ -184,8 +184,8 @@ function renderTaskForm(app) {
         <label for="runtime_config">运行配置 JSON</label>
         <textarea id="runtime_config" name="runtime_config" rows="8">${escapeHtml(JSON.stringify(task?.runtime_config || {}, null, 2))}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${task?.enabled ?? true ? "checked" : ""}><span>启用任务</span></label>
+      <div class="state-toggle-grid state-toggle-grid-single">
+        <label class="state-toggle"><input name="enabled" type="checkbox" ${task?.enabled ?? true ? "checked" : ""}><span>启用任务</span></label>
       </div>
       <div role="group">
         <button type="submit">${task ? "更新任务" : "创建任务"}</button>
@@ -248,11 +248,11 @@ function renderTaskRuleForm(app) {
         <label for="filter_json">联系人过滤 JSON</label>
         <textarea id="filter_json" name="filter_json" rows="4">${escapeHtml(JSON.stringify(rule?.filter_json || {}, null, 2))}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
-        <label><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
-        <label><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
-        <label><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
+      <div class="state-toggle-grid" aria-label="接收规则开关">
+        <label class="state-toggle"><input name="enabled" type="checkbox" ${rule?.enabled ?? true ? "checked" : ""}><span>启用规则</span></label>
+        <label class="state-toggle"><input name="include_self" type="checkbox" ${rule?.include_self ?? true ? "checked" : ""}><span>包含本级</span></label>
+        <label class="state-toggle"><input name="include_county" type="checkbox" ${rule?.include_county ? "checked" : ""}><span>包含县级</span></label>
+        <label class="state-toggle"><input name="include_city" type="checkbox" ${rule?.include_city ? "checked" : ""}><span>包含市级</span></label>
       </div>
       <div role="group">
         <button type="submit">${rule ? "更新规则" : "创建规则"}</button>

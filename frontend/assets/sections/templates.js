@@ -14,6 +14,20 @@ function renderTemplatePreview(form) {
   });
 }
 
+function fillDxptTemplatePreset(form) {
+  if (!form.querySelector("#template_name").value.trim()) {
+    form.querySelector("#template_name").value = "矛盾纠纷移交提醒";
+  }
+  if (!form.querySelector("#template_code").value.trim()) {
+    form.querySelector("#template_code").value = "dxpt_transfer_template";
+  }
+  form.querySelector("#template_content").value = "{message_text}";
+  form.querySelector("#render_example").value = JSON.stringify({
+    message_text: "基础管控中心提醒云城分局某某派出所【纠纷名称】：示例纠纷；24小时内未移交；【纠纷登记时间】：2026-01-01 09:00:00；【纠纷类型】：邻里纠纷；【发生时间】：2026-01-01 08:30:00",
+  }, null, 2);
+  form.querySelector("[name='enabled']").checked = true;
+}
+
 function renderTemplateList(app) {
   if (!app.state.templates.length) {
     return emptyState("暂无短信模板。");
@@ -55,14 +69,17 @@ function renderTemplateEditor(app) {
       </div>
       <div>
         <label for="template_content">模板内容</label>
+        <div class="preset-toolbar">
+          <button class="outline" type="button" data-action="template-dxpt-preset">填入矛盾纠纷模板</button>
+        </div>
         <textarea id="template_content" name="template_content" rows="7" required>${escapeHtml(template?.template_content || "")}</textarea>
       </div>
       <div>
         <label for="render_example">变量预览 JSON</label>
         <textarea id="render_example" name="render_example" rows="5">${preview}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${template?.enabled ?? true ? "checked" : ""}><span>启用模板</span></label>
+      <div class="state-toggle-grid state-toggle-grid-single">
+        <label class="state-toggle"><input name="enabled" type="checkbox" ${template?.enabled ?? true ? "checked" : ""}><span>启用模板</span></label>
       </div>
       <div role="group">
         <button type="submit">${template ? "更新模板" : "创建模板"}</button>
@@ -107,6 +124,10 @@ export const templatesSection = {
   bind(app) {
     const form = document.querySelector("#template-form");
     if (form) {
+      form.querySelector("[data-action='template-dxpt-preset']")?.addEventListener("click", () => {
+        fillDxptTemplatePreset(form);
+      });
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {

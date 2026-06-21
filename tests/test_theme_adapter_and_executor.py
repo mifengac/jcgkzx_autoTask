@@ -14,6 +14,7 @@ from autotask_api.services.theme_executor import (
     build_theme_message,
     build_theme_oracle_eid,
     theme_dedup_since,
+    topic_allows_row,
 )
 
 
@@ -74,11 +75,37 @@ class ThemeAdapterAndExecutorTests(unittest.TestCase):
         self.assertEqual(dedup_key, "JQ-002")
         self.assertEqual(oracle_eid, "juvenile_case:JQ-002")
 
+    def test_build_theme_dedup_key_can_include_transfer_stage(self) -> None:
+        topic = SimpleNamespace(
+            dedup_key_template="{source_event_id}:{transfer_status_code}",
+            theme_code="dxpt_transfer_reminder",
+            filter_expr_json="{}",
+        )
+        row = {
+            "event_key": "fallback",
+            "source_event_id": "DXPT-001",
+            "transfer_status_code": "u24",
+        }
+
+        dedup_key = build_theme_dedup_key(topic, row)
+        oracle_eid = build_theme_oracle_eid(topic, dedup_key)
+
+        self.assertEqual(dedup_key, "DXPT-001:u24")
+        self.assertEqual(oracle_eid, "dxpt_transfer_reminder:DXPT-001:u24")
+
     def test_window_dedup_since(self) -> None:
         topic = SimpleNamespace(dedup_mode="window", dedup_window_minutes=30)
         current_time = datetime(2026, 4, 4, 10, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
         since = theme_dedup_since(topic, current_time)
         self.assertEqual(since, datetime(2026, 4, 4, 9, 30, 0))
+
+    def test_topic_allows_row_when_bound_to_target_topic_codes(self) -> None:
+        row = {"target_topic_codes": ["dxpt_u24"]}
+        self.assertTrue(topic_allows_row(SimpleNamespace(theme_code="dxpt_u24"), row))
+        self.assertFalse(topic_allows_row(SimpleNamespace(theme_code="dxpt_u36"), row))
+
+    def test_topic_allows_row_without_target_topic_codes(self) -> None:
+        self.assertTrue(topic_allows_row(SimpleNamespace(theme_code="dxpt_u24"), {}))
 
 
 if __name__ == "__main__":

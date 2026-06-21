@@ -115,6 +115,19 @@ def build_theme_message(topic: ThemeTopic, row: dict[str, Any]) -> str:
     return dump_json_text(row)
 
 
+def topic_allows_row(topic: ThemeTopic, row: dict[str, Any]) -> bool:
+    target_topic_codes = row.get("target_topic_codes")
+    if target_topic_codes in (None, ""):
+        return True
+    if isinstance(target_topic_codes, str):
+        allowed = {target_topic_codes.strip()} if target_topic_codes.strip() else set()
+    elif isinstance(target_topic_codes, (list, tuple, set)):
+        allowed = {str(item).strip() for item in target_topic_codes if str(item).strip()}
+    else:
+        allowed = set()
+    return not allowed or topic.theme_code in allowed
+
+
 def build_theme_dedup_key(topic: ThemeTopic, row: dict[str, Any]) -> str:
     variables = build_theme_variables(topic, row)
     rendered = render_template(topic.dedup_key_template, variables).strip()
@@ -188,6 +201,8 @@ def execute_theme_source_run(
         for row in rows:
             for topic in source.topics:
                 if not topic.enabled:
+                    continue
+                if not topic_allows_row(topic, row):
                     continue
                 filter_expr = parse_json_text(topic.filter_expr_json, {})
                 if not matches_filter_expr(row, filter_expr):

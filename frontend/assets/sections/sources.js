@@ -1,6 +1,70 @@
 import { api, jsonRequest, parseJson } from "../core/api.js";
 import { emptyState, escapeHtml, formatTime, jsonBlock, metricCard, optionList, panel, statusBadge, table } from "../core/ui.js";
 
+const DXPT_SINGLE_TOPIC_SOURCE_CONFIG = {
+  query_params: {
+    start_date: "2026-01-01",
+    limit: 5000,
+  },
+  fetch_profile: {
+    chunk_size: 500,
+    max_rows: 5000,
+  },
+  field_map: {
+    event_key: "source_event_id",
+    case_no: "business_no",
+    sspcsdm: "station_code",
+    dwdm: "station_code",
+    message_text: "message_text",
+  },
+  queries: [
+    {
+      query_code: "dxpt_transfer_all",
+      topic_codes: ["dxpt_transfer_reminder"],
+      query: "SELECT * FROM stdata.v_dxpt_mdjf_transfer_monitor WHERE registered_at >= CAST(:start_date AS timestamp) AND transfer_status LIKE '%未移交%' ORDER BY registered_at DESC LIMIT :limit",
+    },
+  ],
+};
+
+function sourceTypeOptions(currentType) {
+  const value = currentType || "dsjfx_case_list";
+  return [
+    `<option value="dsjfx_case_list" ${value === "dsjfx_case_list" ? "selected" : ""}>dsjfx_case_list</option>`,
+    `<option value="db_sql_select" ${value === "db_sql_select" ? "selected" : ""}>db_sql_select</option>`,
+    `<option value="kingbase_multi_sql" ${value === "kingbase_multi_sql" ? "selected" : ""}>kingbase_multi_sql</option>`,
+  ].join("");
+}
+
+function sourceConfigHint(sourceType) {
+  if (sourceType === "kingbase_multi_sql") {
+    return "KingbaseV8 数据源：连接串默认读取 THEME_DB_URL，未配置时复用 DATABASE_URL；矛盾纠纷提醒推荐只配置 1 条基础 SQL，再用 1 个主题按 transfer_status_code 去重。";
+  }
+  if (sourceType === "db_sql_select") {
+    return "数据库型数据源建议配置 credential_ref.url_env、query、time_range、fetch_profile 和 field_map；查询只支持单条只读 SELECT/WITH。";
+  }
+  return "HTTP 型数据源沿用 dsjfx_case_list 配置，通常包含 credential_ref、login_url、api_url、time_range 和 fetch_profile。";
+}
+
+function prettyJson(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function fillDxptSingleTopicSourcePreset(form) {
+  const currentConfig = String(form.querySelector("#source_config")?.value || "").trim();
+  if (currentConfig && currentConfig !== "{}" && !window.confirm("当前数据源配置 JSON 将被矛盾纠纷单主题预设覆盖，是否继续？")) {
+    return;
+  }
+  form.querySelector("#source_type").value = "kingbase_multi_sql";
+  form.querySelector("#source-config-hint").textContent = sourceConfigHint("kingbase_multi_sql");
+  if (!form.querySelector("#source_name").value.trim()) {
+    form.querySelector("#source_name").value = "矛盾纠纷移交提醒数据源";
+  }
+  if (!form.querySelector("#source_code").value.trim()) {
+    form.querySelector("#source_code").value = "dxpt_transfer_source";
+  }
+  form.querySelector("#source_config").value = prettyJson(DXPT_SINGLE_TOPIC_SOURCE_CONFIG);
+}
+
 function currentSource(app) {
   return app.getCurrentSource();
 }
@@ -57,7 +121,7 @@ function renderSourceForm(app) {
         <div>
           <label for="source_type">数据源类型</label>
           <select id="source_type" name="source_type">
-            <option value="dsjfx_case_list" selected>dsjfx_case_list</option>
+            ${sourceTypeOptions(value?.source_type)}
           </select>
         </div>
         <div>
@@ -78,10 +142,20 @@ function renderSourceForm(app) {
       </div>
       <div>
         <label for="source_config">数据源配置 JSON</label>
+        <div id="source-config-hint" style="margin:4px 0 8px;color:var(--muted);font-size:.9rem;">${escapeHtml(sourceConfigHint(value?.source_type || "dsjfx_case_list"))}</div>
+        <div class="preset-toolbar">
+          <button class="outline" type="button" data-action="source-dxpt-single-preset">填入矛盾纠纷单主题配置</button>
+        </div>
         <textarea id="source_config" name="source_config" rows="12">${escapeHtml(JSON.stringify(value?.source_config || {}, null, 2))}</textarea>
       </div>
-      <div>
-        <label><input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}><span>启用数据源</span></label>
+      <div class="state-toggle-grid state-toggle-grid-single">
+        <label class="state-toggle">
+          <input name="enabled" type="checkbox" ${value?.enabled ?? true ? "checked" : ""}>
+          <span>
+            <strong>启用数据源</strong>
+            <small>打开后参与调度和手动执行，关闭后保留配置但不执行。</small>
+          </span>
+        </label>
       </div>
       <div role="group">
         <button type="submit">${app.state.editingSourceId ? "更新数据源" : "创建数据源"}</button>
@@ -192,6 +266,17 @@ export const sourcesSection = {
 
     const form = document.querySelector("#source-form");
     if (form) {
+      const sourceTypeSelect = form.querySelector("#source_type");
+      const sourceConfigHintNode = form.querySelector("#source-config-hint");
+      if (sourceTypeSelect && sourceConfigHintNode) {
+        sourceTypeSelect.addEventListener("change", () => {
+          sourceConfigHintNode.textContent = sourceConfigHint(sourceTypeSelect.value || "dsjfx_case_list");
+        });
+      }
+      form.querySelector("[data-action='source-dxpt-single-preset']")?.addEventListener("click", () => {
+        fillDxptSingleTopicSourcePreset(form);
+      });
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
