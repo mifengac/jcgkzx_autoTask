@@ -1,91 +1,1009 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>基础管控中心短信监测配置平台</title>
-  <meta http-equiv="Cache-Control" content="no-store">
-  <link rel="stylesheet" href="/assets/pico.min.css?v=20260422-ui8">
-  <link rel="stylesheet" href="/assets/console-theme.css?v=20260422-ui8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>基础管控中心 · 短信监测配置平台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:13px;color:#1d2129;background:#f2f3f5;line-height:1.57;-webkit-font-smoothing:antialiased}
+input,select,textarea,button{font:inherit}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:#c9cdd4;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#86909c}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── Login ─────────────────────────────────────── */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#ecedf0}
+.login-box{width:356px;background:#fff;border:1px solid #e5e6eb;border-radius:6px;padding:36px 28px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo-icon{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:#2b5797;border-radius:8px;margin-bottom:12px}
+.login-title{font-size:17px;font-weight:600;color:#1d2129}
+.login-sub{font-size:12px;color:#86909c;margin-top:3px}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:12px;color:#4e5969;margin-bottom:5px}
+.form-row input{width:100%;height:34px;padding:0 10px;border:1px solid #e5e6eb;border-radius:4px;outline:none;font-size:13px}
+.form-row input:focus{border-color:#2b5797;box-shadow:0 0 0 2px rgba(43,87,151,.1)}
+.login-err{margin-bottom:12px;padding:6px 10px;background:#faeae9;border:1px solid #e8c5c3;border-radius:4px;color:#c45a52;font-size:12px}
+.btn-login{width:100%;height:34px;background:#2b5797;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:500}
+.btn-login:hover{background:#1d3f6e}
+.login-tip{text-align:center;margin-top:14px;font-size:11px;color:#c9cdd4}
+
+/* ── App Shell ──────────────────────────────────── */
+.app-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+header.topbar{height:48px;background:#2b5797;display:flex;align-items:center;padding:0 16px;flex-shrink:0;z-index:100}
+.topbar-brand{display:flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:500;letter-spacing:.3px}
+.topbar-fill{flex:1}
+.topbar-status{display:flex;align-items:center;gap:14px;margin-right:16px}
+.svc-dot{display:flex;align-items:center;gap:4px;color:rgba(255,255,255,.7);font-size:11px}
+.dot{width:6px;height:6px;border-radius:50%}
+.topbar-div{width:1px;height:20px;background:rgba(255,255,255,.18);margin:0 6px}
+.tbtn{display:flex;align-items:center;gap:4px;height:30px;padding:0 10px;background:rgba(255,255,255,.1);border:none;border-radius:4px;cursor:pointer;color:rgba(255,255,255,.85);font-size:12px}
+.tbtn:hover{background:rgba(255,255,255,.2)}
+.tbtn-icon{width:30px;padding:0}
+
+/* ── Layout ─────────────────────────────────────── */
+.app-body{display:flex;flex:1;overflow:hidden}
+.sidebar{width:184px;background:#fff;border-right:1px solid #e5e6eb;padding:6px 0;overflow-y:auto;flex-shrink:0}
+.nav-item{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;margin:1px 6px;border-radius:4px;cursor:pointer;font-size:13px;color:#4e5969}
+.nav-item:hover{background:#f7f8fa}
+.nav-item.active{background:#edf1f7;color:#2b5797;font-weight:500}
+.nav-item svg{flex-shrink:0}
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f2f3f5}
+
+/* ── Page Header ────────────────────────────────── */
+.page-hdr{padding:14px 20px 0;background:#fff;border-bottom:1px solid #e5e6eb;flex-shrink:0}
+.page-hdr-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.page-title{font-size:15px;font-weight:600;color:#1d2129}
+.page-desc{font-size:12px;color:#86909c;margin-top:2px}
+.tabs{display:flex;margin-top:2px}
+.tab{padding:6px 14px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#4e5969;margin-bottom:-1px}
+.tab:hover{color:#2b5797}
+.tab.active{border-color:#2b5797;color:#2b5797;font-weight:500}
+
+/* ── Page Body ──────────────────────────────────── */
+.page-body{flex:1;overflow-y:auto;padding:14px 20px 20px}
+
+/* ── Metric Cards ───────────────────────────────── */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.metric-card{background:#fff;border:1px solid #e5e6eb;border-radius:6px;padding:14px 16px}
+.metric-label{font-size:12px;color:#86909c;margin-bottom:6px}
+.metric-val{font-size:24px;font-weight:600;line-height:1.2}
+.metric-sub{font-size:11px;color:#b0b5bd;margin-top:4px}
+.grid-2{display:grid;grid-template-columns:1fr 320px;gap:12px}
+.right-col{display:flex;flex-direction:column;gap:12px}
+
+/* ── Cards ──────────────────────────────────────── */
+.card{background:#fff;border:1px solid #e5e6eb;border-radius:6px;overflow:hidden}
+.card-hdr{padding:10px 16px;border-bottom:1px solid #f2f3f5;font-size:13px;font-weight:600;color:#1d2129;display:flex;align-items:center;justify-content:space-between}
+.card-body{padding:14px 16px}
+.card-link{font-size:12px;color:#2b5797;font-weight:400;cursor:pointer}
+.card-link:hover{opacity:.7}
+.svc-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f2f3f5;font-size:12px;color:#4e5969}
+.svc-row:last-child{border-bottom:none}
+.shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.shortcut{display:flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #e5e6eb;border-radius:4px;cursor:pointer;font-size:12px;color:#4e5969}
+.shortcut:hover{border-color:#2b5797;color:#2b5797}
+
+/* ── Toolbar ────────────────────────────────────── */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.search-wrap{position:relative}
+.search-wrap input{width:220px;height:30px;padding:0 8px 0 28px;border:1px solid #e5e6eb;border-radius:4px;outline:none;font-size:12px}
+.search-wrap input:focus{border-color:#2b5797}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#86909c;pointer-events:none}
+.total-info{font-size:12px;color:#86909c}
+
+/* ── Buttons ────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 12px;border-radius:4px;cursor:pointer;font-size:13px;border:none}
+.btn-primary{background:#2b5797;color:#fff}
+.btn-primary:hover{background:#1d3f6e}
+.btn-default{background:#fff;border:1px solid #e5e6eb;color:#4e5969}
+.btn-default:hover{border-color:#2b5797;color:#2b5797}
+.btn-sm{height:26px;padding:0 10px;font-size:12px}
+
+/* ── Table ──────────────────────────────────────── */
+.table-wrap{background:#fff;border:1px solid #e5e6eb;border-radius:6px;overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead tr{background:#fafbfc}
+th{padding:8px 12px;text-align:left;font-size:12px;font-weight:500;color:#86909c;border-bottom:1px solid #e5e6eb;white-space:nowrap;overflow:hidden}
+td{padding:0 12px;height:38px;border-bottom:1px solid #f2f3f5;font-size:12px;color:#1d2129;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+tbody tr:hover{background:#f7f8fa}
+.act-cell{display:flex;align-items:center;gap:10px;height:38px}
+.act-link{font-size:12px;cursor:pointer;white-space:nowrap}
+.act-link:hover{opacity:.7}
+.empty-state{padding:48px 0;text-align:center;color:#c9cdd4;font-size:13px}
+.empty-icon{font-size:32px;margin-bottom:8px;opacity:.5}
+
+/* ── Pagination ─────────────────────────────────── */
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:12px;font-size:12px;color:#4e5969}
+.pg-info{margin-right:8px}
+.pg-btn{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;background:#fff;border:1px solid #e5e6eb;border-radius:4px;cursor:pointer;font-size:12px;color:#4e5969}
+.pg-btn:hover{border-color:#2b5797;color:#2b5797}
+.pg-btn.active{background:#2b5797;border-color:#2b5797;color:#fff}
+
+/* ── Badge ──────────────────────────────────────── */
+.badge{display:inline-block;padding:1px 8px;font-size:12px;line-height:20px;border-radius:3px;white-space:nowrap}
+.badge-green{background:#edf5ef;color:#3c7d0e;border:1px solid #c8dece}
+.badge-red{background:#faeae9;color:#c45a52;border:1px solid #e8c5c3}
+.badge-gray{background:#f7f8fa;color:#86909c;border:1px solid #e5e6eb}
+.badge-yellow{background:#fdf6ec;color:#b8860b;border:1px solid #eddcb0}
+.badge-blue{background:#e8eef6;color:#2b5797;border:1px solid #c5d4e8}
+
+/* ── Drawer ─────────────────────────────────────── */
+.drawer-overlay{position:fixed;inset:0;z-index:200}
+.drawer-bg{position:absolute;inset:0;background:rgba(0,0,0,.3);animation:fadeIn .15s}
+.drawer-panel{position:absolute;right:0;top:0;bottom:0;width:520px;background:#fff;box-shadow:-4px 0 16px rgba(0,0,0,.08);display:flex;flex-direction:column;animation:slideIn .2s ease-out}
+.drawer-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #e5e6eb;flex-shrink:0}
+.drawer-title-text{font-size:15px;font-weight:600;color:#1d2129}
+.drawer-close{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:none;border:none;cursor:pointer;color:#86909c;border-radius:4px;font-size:16px}
+.drawer-close:hover{background:#f2f3f5;color:#1d2129}
+.drawer-body{flex:1;overflow-y:auto;padding:16px 20px}
+.drawer-foot{padding:12px 20px;border-top:1px solid #e5e6eb;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.facts-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #e5e6eb;border-radius:4px;overflow:hidden}
+.fact-cell{padding:8px 12px;border-bottom:1px solid #f2f3f5}
+.fact-label{font-size:11px;color:#86909c;margin-bottom:2px}
+.fact-val{font-size:13px;color:#1d2129;word-break:break-all}
+.preview-block{margin-top:16px}
+.preview-label{font-size:12px;font-weight:600;color:#1d2129;margin-bottom:6px}
+pre.preview{margin:0;padding:10px 12px;background:#fafbfc;border:1px solid #e5e6eb;border-radius:4px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all;font-family:Menlo,Consolas,"Courier New",monospace;max-height:200px;overflow-y:auto;color:#1d2129}
+.form-field{margin-bottom:14px}
+.field-label{font-size:12px;color:#4e5969;margin-bottom:4px;display:flex;align-items:center;gap:2px}
+.field-req{color:#c45a52}
+.field-input{width:100%;height:32px;padding:0 8px;border:1px solid #e5e6eb;border-radius:4px;outline:none;font-size:13px}
+.field-input:focus{border-color:#2b5797}
+.field-select{width:100%;height:32px;padding:0 8px;border:1px solid #e5e6eb;border-radius:4px;outline:none;font-size:13px;background:#fff;cursor:pointer}
+.field-select:focus{border-color:#2b5797}
+.field-textarea{width:100%;padding:8px;border:1px solid #e5e6eb;border-radius:4px;outline:none;font-size:13px;resize:vertical;line-height:1.5}
+.field-textarea:focus{border-color:#2b5797}
+
+/* ── Toast ──────────────────────────────────────── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column-reverse;gap:8px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fff;border:1px solid #e5e6eb;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:13px;color:#1d2129;animation:fadeIn .2s;pointer-events:auto}
+
+/* ── Loading ────────────────────────────────────── */
+.loading{padding:32px;text-align:center;color:#86909c;font-size:13px}
+</style>
 </head>
-<body class="console-body">
-  <main class="console-app">
-    <section class="surface-card surface-card--hero console-masthead">
-      <div class="console-masthead__copy">
-        <p class="console-eyebrow">JCGKZX AUTOTASK</p>
-        <h1>基础管控中心短信监测配置平台</h1>
-        <p class="console-lead">用更清晰的章节感和更稳定的状态视图，统一查看任务、主题、短信与运行记录。</p>
-        <div class="console-masthead__badges" aria-label="平台能力">
-          <span class="console-tag">主题监测</span>
-          <span class="console-tag">脚本任务</span>
-          <span class="console-tag">短信发送</span>
-          <span class="console-tag">运行追踪</span>
-        </div>
+<body>
+
+<!-- Login -->
+<div id="pg-login" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
-
-      <div class="console-masthead__ops">
-        <section class="console-status-card" aria-label="平台状态">
-          <p class="console-eyebrow">System Pulse</p>
-          <div class="console-action-group">
-            <strong id="health-pill" data-state="checking">检查中</strong>
-          </div>
-          <p>保留现有调度、筛选与发送链路，只重做控制台的视觉节奏与信息层级。</p>
-        </section>
-
-        <div class="console-action-group" aria-label="全局操作">
-          <button id="refresh-all" class="secondary" type="button">刷新全部</button>
-          <a href="/logout" role="button" class="outline">退出登录</a>
-        </div>
-      </div>
-    </section>
-
-    <div class="console-layout">
-      <aside class="console-sidebar">
-        <article class="surface-card console-sidebar__card">
-          <header class="console-sidebar__header">
-            <p class="console-eyebrow">Primary Navigation</p>
-            <h2 class="console-sidebar__title">控制台章节</h2>
-          </header>
-          <nav id="primary-nav" aria-label="一级导航"></nav>
-        </article>
-
-        <article class="surface-card console-sidebar__card">
-          <header class="console-sidebar__header">
-            <p class="console-eyebrow">Section Focus</p>
-            <h2 class="console-sidebar__title" id="secondary-title">总览</h2>
-          </header>
-          <nav id="secondary-nav" aria-label="二级导航"></nav>
-        </article>
-
-        <article class="surface-card surface-card--dark console-sidebar__note">
-          <p class="console-eyebrow">Template Preview</p>
-          <h3>首版模板先服务总览页。</h3>
-          <p>本轮统一壳层、卡片、表格、抽屉和状态样式，其他业务页后续按同一模板逐步迁移。</p>
-        </article>
-      </aside>
-
-      <section class="console-stage">
-        <article id="section-header" class="surface-card console-section-card"></article>
-        <div id="content-area" class="console-content"></div>
-      </section>
+      <div class="login-title">基础管控中心</div>
+      <div class="login-sub">短信监测配置平台</div>
     </div>
+    <div class="form-row"><label>用户名</label><input id="inp-un" type="text" placeholder="请输入工号"></div>
+    <div class="form-row"><label>密码</label><input id="inp-pw" type="password" placeholder="请输入密码"></div>
+    <div id="login-err" class="login-err" hidden></div>
+    <button class="btn-login" onclick="doLogin()">登 录</button>
+    <div class="login-tip">内网专用 · 未授权访问将被记录</div>
+  </div>
+</div>
 
-    <section id="flash" hidden role="status" aria-live="polite"></section>
-  </main>
+<!-- App -->
+<div id="pg-app" class="app-wrap" hidden>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      基础管控中心 · 短信监测配置平台
+    </div>
+    <div class="topbar-fill"></div>
+    <div class="topbar-status" id="svc-status"></div>
+    <button class="tbtn tbtn-icon" onclick="refreshPage()" title="刷新">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+    </button>
+    <div class="topbar-div"></div>
+    <button class="tbtn" onclick="doLogout()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      退出
+    </button>
+  </header>
+  <div class="app-body">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="main-area">
+      <div class="page-hdr" id="page-hdr"></div>
+      <div class="page-body" id="page-body"></div>
+    </main>
+  </div>
+</div>
 
-  <dialog id="detail-drawer" class="console-drawer">
-    <article class="console-drawer__surface">
-      <header class="console-drawer__header">
-        <div>
-          <p class="console-eyebrow" id="drawer-eyebrow">详情</p>
-          <h2 id="drawer-title">详情面板</h2>
+<!-- Drawer -->
+<div class="drawer-overlay" id="drawer" hidden>
+  <div class="drawer-bg" onclick="closeDrawer()"></div>
+  <div class="drawer-panel">
+    <div class="drawer-hdr">
+      <span class="drawer-title-text" id="drawer-title">详情</span>
+      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+    <div class="drawer-foot" id="drawer-foot" hidden>
+      <button class="btn btn-default" onclick="closeDrawer()">取消</button>
+      <button class="btn btn-primary" onclick="doSave()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════
+const S = {
+  curPage: 'overview', curTab: 0,
+  search: '', pg: 1, pgSz: 15,
+  dMode: '', dData: null, dType: '',
+  form: {}, extra: {},  // extra = aux data (e.g. sources list for topic form)
+  _tid: 0,
+};
+
+// ══════════════════════════════════════════════════
+//  API
+// ══════════════════════════════════════════════════
+async function api(method, path, body) {
+  const opts = { method, credentials: 'include' };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  if (r.status === 401) { showLogin(); return null; }
+  if (r.status === 204) return null;
+  const text = await r.text();
+  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+  return text ? JSON.parse(text) : null;
+}
+const GET  = (p, q) => api('GET', q ? p + '?' + new URLSearchParams(q) : p);
+const POST = (p, b) => api('POST', p, b);
+const PUT  = (p, b) => api('PUT', p, b);
+const DEL  = p       => api('DELETE', p);
+
+// ══════════════════════════════════════════════════
+//  Auth
+// ══════════════════════════════════════════════════
+async function doLogin() {
+  const un = document.getElementById('inp-un').value.trim();
+  const pw = document.getElementById('inp-pw').value;
+  const err = document.getElementById('login-err');
+  if (!un || !pw) { err.textContent = '请输入用户名和密码'; err.hidden = false; return; }
+  try {
+    const r = await POST('/api/auth/login', { username: un, password: pw });
+    if (r) { showApp(); }
+  } catch(e) { err.textContent = '用户名或密码错误'; err.hidden = false; }
+}
+async function doLogout() {
+  try { await POST('/api/auth/logout'); } catch(_) {}
+  showLogin();
+}
+function showLogin() {
+  document.getElementById('pg-login').hidden = false;
+  document.getElementById('pg-app').hidden = true;
+}
+async function showApp() {
+  document.getElementById('pg-login').hidden = true;
+  document.getElementById('pg-app').hidden = false;
+  renderNav();
+  await checkHealth();
+  navTo('overview');
+}
+document.getElementById('inp-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+// Auto-check session on load
+window.addEventListener('load', async () => {
+  try { const r = await GET('/api/auth/me'); if (r) showApp(); } catch(_) {}
+});
+
+// ══════════════════════════════════════════════════
+//  Health
+// ══════════════════════════════════════════════════
+async function checkHealth() {
+  const wrap = document.getElementById('svc-status');
+  try {
+    const r = await GET('/health');
+    const ok = r?.status === 'ok';
+    wrap.innerHTML = `<div class="svc-dot"><div class="dot" style="background:${ok?'#52c41a':'#ff4d4f'}"></div>调度服务</div>
+      <div class="svc-dot"><div class="dot" style="background:#52c41a"></div>模板服务</div>
+      <div class="svc-dot"><div class="dot" style="background:#faad14"></div>发送服务</div>`;
+  } catch(_) {
+    wrap.innerHTML = `<div class="svc-dot"><div class="dot" style="background:#ff4d4f"></div>服务异常</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════════════
+const NAV = [
+  { key:'overview',    label:'总览',         icon:'<rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="3" width="8" height="8" rx="1" fill="currentColor" stroke="none" opacity=".65"/><rect x="3" y="13" width="8" height="8" rx="1" fill="currentColor" stroke="none" opacity=".65"/><rect x="13" y="13" width="8" height="8" rx="1" fill="currentColor" stroke="none" opacity=".35"/>'},
+  { key:'datasource',  label:'数据源管理',   icon:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 11v5c0 1.66 3.13 3 7 3s7-1.34 7-3v-5"/>'},
+  { key:'topic',       label:'主题管理',      icon:'<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r=".5" fill="currentColor"/>'},
+  { key:'template',    label:'短信模板',      icon:'<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/>'},
+  { key:'contact',     label:'联系人管理',    icon:'<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'},
+  { key:'hitresult',   label:'命中结果',      icon:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>'},
+  { key:'sendrecord',  label:'发送记录',      icon:'<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>'},
+  { key:'runhistory',  label:'运行历史',      icon:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'},
+  { key:'customtask',  label:'自定义任务',    icon:'<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>'},
+];
+
+function renderNav() {
+  document.getElementById('sidebar').innerHTML = NAV.map(n => `
+    <div class="nav-item ${S.curPage===n.key?'active':''}" onclick="navTo('${n.key}')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${n.icon}</svg>
+      ${n.label}
+    </div>`).join('');
+}
+
+function navTo(page) {
+  S.curPage = page; S.curTab = 0; S.pg = 1; S.search = '';
+  closeDrawer();
+  renderNav();
+  loadPage();
+}
+
+async function refreshPage() { await loadPage(); toast('数据已刷新'); }
+
+// ══════════════════════════════════════════════════
+//  Badge
+// ══════════════════════════════════════════════════
+const BADGE_MAP = {
+  '正常':'green','启用':'green','成功':'green','已处理':'green','active':'green','ok':'green',
+  '异常':'red','失败':'red','error':'red','inactive':'red',
+  '已停用':'gray','disabled':'gray',
+  '未处理':'yellow','待发送':'yellow','pending':'yellow','running':'blue',
+  '运行中':'blue','queued':'blue','已发送':'green',
+};
+function badge(text) {
+  if (text === null || text === undefined) return '';
+  const t = String(text);
+  const cls = BADGE_MAP[t] || 'gray';
+  return `<span class="badge badge-${cls}">${t}</span>`;
+}
+function enabledBadge(v) { return badge(v ? '启用' : '已停用'); }
+function statusBadge(s) {
+  const m = {running:'运行中',success:'成功',failed:'失败',pending:'待发送',sent:'已发送'};
+  return badge(m[s] || s);
+}
+
+// ══════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════
+function toast(msg, type='success') {
+  const id = ++S._tid;
+  const ico = type==='success'?'✓':type==='error'?'✕':'!';
+  const c = type==='success'?'#3c7d0e':type==='error'?'#c45a52':'#b8860b';
+  const el = document.createElement('div');
+  el.className = 'toast'; el.id = 'toast-'+id;
+  el.innerHTML = `<span style="font-weight:600;color:${c}">${ico}</span>${msg}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ══════════════════════════════════════════════════
+//  Drawer
+// ══════════════════════════════════════════════════
+function openDrawer(title, bodyHtml, showFoot=false) {
+  document.getElementById('drawer-title').textContent = title;
+  document.getElementById('drawer-body').innerHTML = bodyHtml;
+  document.getElementById('drawer-foot').hidden = !showFoot;
+  document.getElementById('drawer').hidden = false;
+}
+function closeDrawer() {
+  document.getElementById('drawer').hidden = true;
+  S.dMode = ''; S.dData = null; S.form = {};
+}
+
+// ══════════════════════════════════════════════════
+//  Page header render
+// ══════════════════════════════════════════════════
+const PAGE_CFG = {
+  overview:   { title:'总览',         desc:'系统运行状态总览与快捷入口', tabs:[] },
+  datasource: { title:'数据源管理',   desc:'管理主题数据源，配置抓取来源与调度频率', tabs:['全部','dsjfx_case_list','db_sql_select','kingbase_multi_sql'], add:'新增数据源' },
+  topic:      { title:'主题管理',     desc:'配置监测主题与过滤规则', tabs:['全部主题','启用中','已停用'], add:'新增主题' },
+  template:   { title:'短信模板',     desc:'管理短信发送模板与变量配置', tabs:['全部模板','启用中','已停用'], add:'新增模板' },
+  contact:    { title:'联系人管理',   desc:'管理短信接收联系人', tabs:['全部'], add:'新增联系人' },
+  hitresult:  { title:'命中结果',     desc:'主题规则命中的事件记录', tabs:['全部','已发送','待发送','未处理'] },
+  sendrecord: { title:'发送记录',     desc:'短信发送状态追踪', tabs:['全部','成功','失败'] },
+  runhistory: { title:'运行历史',     desc:'数据源采集与脚本任务运行记录', tabs:['主题数据源','脚本任务'] },
+  customtask: { title:'自定义任务',   desc:'脚本任务管理与调度', tabs:['全部','启用中','已停用'], add:'新增任务' },
+};
+
+function renderPageHdr() {
+  const cfg = PAGE_CFG[S.curPage];
+  const addBtn = cfg.add
+    ? `<button class="btn btn-primary" onclick="openAdd()">＋ ${cfg.add}</button>` : '';
+  const tabs = cfg.tabs.length > 1
+    ? `<div class="tabs">${cfg.tabs.map((t,i)=>`<div class="tab ${i===S.curTab?'active':''}" onclick="switchTab(${i})">${t}</div>`).join('')}</div>` : '';
+  document.getElementById('page-hdr').innerHTML = `
+    <div class="page-hdr-top">
+      <div><div class="page-title">${cfg.title}</div><div class="page-desc">${cfg.desc}</div></div>
+      ${addBtn}
+    </div>${tabs}`;
+}
+
+function switchTab(i) { S.curTab = i; S.pg = 1; loadPage(); }
+
+// ══════════════════════════════════════════════════
+//  Toolbar
+// ══════════════════════════════════════════════════
+function toolbar(total) {
+  return `<div class="toolbar">
+    <div class="search-wrap">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" placeholder="搜索..." value="${S.search}" oninput="onSearch(this.value)">
+    </div>
+    <button class="btn btn-default" onclick="refreshPage()">↻ 刷新</button>
+    <div style="flex:1"></div>
+    <span class="total-info">共 ${total} 条</span>
+  </div>`;
+}
+function onSearch(v) { S.search = v; S.pg = 1; loadPage(); }
+
+// ══════════════════════════════════════════════════
+//  Pagination
+// ══════════════════════════════════════════════════
+function renderPg(total) {
+  const tpg = Math.ceil(total / S.pgSz) || 1;
+  if (total <= S.pgSz) return '';
+  let btns = '';
+  for (let i = 1; i <= Math.min(tpg, 7); i++)
+    btns += `<button class="pg-btn ${i===S.pg?'active':''}" onclick="goPg(${i})">${i}</button>`;
+  return `<div class="pagination"><span class="pg-info">第 ${S.pg}/${tpg} 页</span>
+    <button class="pg-btn" onclick="goPg(${Math.max(1,S.pg-1)})">‹</button>${btns}
+    <button class="pg-btn" onclick="goPg(${Math.min(tpg,S.pg+1)})">›</button></div>`;
+}
+function goPg(p) { S.pg = p; loadPage(); }
+
+// ══════════════════════════════════════════════════
+//  Table helpers
+// ══════════════════════════════════════════════════
+function tableWrap(cols, rows, acts) {
+  const colHtml = cols.map(c=>`<th style="width:${c.w||''}">${c.l}</th>`).join('');
+  const actHdr = acts ? `<th style="width:110px">操作</th>` : '';
+  let tbody = '';
+  if (!rows.length) {
+    tbody = `<tr><td colspan="${cols.length + (acts?1:0)}" style="padding:0"><div class="empty-state"><div class="empty-icon">∅</div>暂无数据</div></td></tr>`;
+  } else {
+    rows.forEach(r => {
+      const cells = r.cells.map(c=>`<td>${c??''}</td>`).join('');
+      const actCell = acts ? `<td><div class="act-cell">${r.acts.map(a=>`<span class="act-link" style="color:${a.c||'#2b5797'}" onclick="${a.fn}">${a.label}</span>`).join('')}</div></td>` : '';
+      tbody += `<tr>${cells}${actCell}</tr>`;
+    });
+  }
+  return `<div class="table-wrap"><table><thead><tr>${colHtml}${actHdr}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+function fmtDt(s) { return s ? String(s).replace('T',' ').substring(0,16) : '—'; }
+function fmtN(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+
+// ══════════════════════════════════════════════════
+//  Page: Overview
+// ══════════════════════════════════════════════════
+async function loadOverview() {
+  const pb = document.getElementById('page-body');
+  pb.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const [sources, tasks, runs, themeRuns] = await Promise.all([
+      GET('/api/theme-sources').catch(()=>[]),
+      GET('/api/tasks').catch(()=>[]),
+      GET('/api/task-runs', {limit:5}).catch(()=>({items:[]})),
+      GET('/api/theme-runs', {limit:5}).catch(()=>[]),
+    ]);
+    const srcList = Array.isArray(sources) ? sources : [];
+    const taskList = Array.isArray(tasks) ? tasks : [];
+    const enabled = srcList.filter(s=>s.enabled).length;
+    const topicCount = srcList.reduce((a,s)=>a+(s.topic_count||0),0);
+    const runList = Array.isArray(themeRuns) ? themeRuns.slice(0,5) : [];
+
+    const recentHtml = runList.map(r=>`<tr>
+      <td>${fmtDt(r.created_at)}</td>
+      <td>源 #${r.source_id}</td>
+      <td>${fmtN(r.fetched_count)} / ${fmtN(r.matched_count)}</td>
+      <td>${statusBadge(r.status)}</td>
+    </tr>`).join('') || `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">∅</div>暂无运行记录</div></td></tr>`;
+
+    pb.innerHTML = `
+      <div class="metrics">
+        <div class="metric-card"><div class="metric-label">数据源总数</div><div class="metric-val" style="color:#2b5797">${srcList.length}</div><div class="metric-sub">启用 ${enabled} · 停用 ${srcList.length-enabled}</div></div>
+        <div class="metric-card"><div class="metric-label">监测主题</div><div class="metric-val" style="color:#2b5797">${topicCount}</div><div class="metric-sub">来自 ${srcList.length} 个数据源</div></div>
+        <div class="metric-card"><div class="metric-label">自定义任务</div><div class="metric-val" style="color:#2b5797">${taskList.length}</div><div class="metric-sub">启用 ${taskList.filter(t=>t.enabled).length} 个</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hdr"><span>最近运行记录</span><span class="card-link" onclick="navTo('runhistory')">查看全部 →</span></div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="background:#fafbfc">
+              <th style="padding:7px 12px;font-size:12px;font-weight:500;color:#86909c;border-bottom:1px solid #e5e6eb">时间</th>
+              <th style="padding:7px 12px;font-size:12px;font-weight:500;color:#86909c;border-bottom:1px solid #e5e6eb">来源</th>
+              <th style="padding:7px 12px;font-size:12px;font-weight:500;color:#86909c;border-bottom:1px solid #e5e6eb">抓取/命中</th>
+              <th style="padding:7px 12px;font-size:12px;font-weight:500;color:#86909c;border-bottom:1px solid #e5e6eb;width:72px">状态</th>
+            </tr></thead>
+            <tbody>${recentHtml}</tbody>
+          </table>
         </div>
-        <button id="drawer-close" type="button" class="secondary" aria-label="关闭详情">关闭</button>
-      </header>
-      <div class="console-drawer__body" id="drawer-body"></div>
-    </article>
-  </dialog>
+        <div class="right-col">
+          <div class="card"><div class="card-hdr">服务状态</div><div class="card-body" id="svc-detail-wrap">
+            <div class="svc-row"><span>数据采集服务</span>${badge('正常')}</div>
+            <div class="svc-row"><span>模板渲染服务</span>${badge('正常')}</div>
+            <div class="svc-row"><span>短信发送服务</span>${badge('正常')}</div>
+          </div></div>
+          <div class="card"><div class="card-hdr">快捷操作</div><div class="card-body">
+            <div class="shortcuts">
+              <div class="shortcut" onclick="navTo('datasource')">＋ 数据源</div>
+              <div class="shortcut" onclick="navTo('topic')">＋ 新增主题</div>
+              <div class="shortcut" onclick="navTo('hitresult')">◎ 命中结果</div>
+              <div class="shortcut" onclick="navTo('runhistory')">▶ 运行历史</div>
+            </div>
+          </div></div>
+        </div>
+      </div>`;
+  } catch(e) { pb.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`; }
+}
 
-  <script type="module" src="/assets/app.js?v=20260422-ui8"></script>
+// ══════════════════════════════════════════════════
+//  Page: Data Sources
+// ══════════════════════════════════════════════════
+let _sources = [];
+async function loadDatasource() {
+  const pb = document.getElementById('page-body');
+  pb.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const data = await GET('/api/theme-sources');
+    _sources = Array.isArray(data) ? data : [];
+    let rows = _sources;
+    if (S.curTab > 0) rows = rows.filter(r => r.source_type === PAGE_CFG.datasource.tabs[S.curTab]);
+    if (S.search) { const q = S.search.toLowerCase(); rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q)); }
+    const total = rows.length;
+    const paged = rows.slice((S.pg-1)*S.pgSz, S.pg*S.pgSz);
+    const cols = [{l:'ID',w:'50px'},{l:'名称',w:''},{l:'类型',w:'160px'},{l:'主题数',w:'60px'},{l:'调度(分钟)',w:'90px'},{l:'状态',w:'72px'},{l:'更新时间',w:'140px'}];
+    const tableRows = paged.map(r => ({
+      cells:[r.id, r.source_name, r.source_type, r.topic_count, r.schedule?.interval_minutes??'—', enabledBadge(r.enabled), fmtDt(r.updated_at)],
+      acts:[
+        {label:'查看',c:'#2b5797',fn:`viewSource(${r.id})`},
+        {label:'编辑',c:'#2b5797',fn:`editSource(${r.id})`},
+        {label:r.enabled?'停用':'启用',c:r.enabled?'#c45a52':'#2b5797',fn:`toggleSource(${r.id},${!r.enabled})`},
+      ]
+    }));
+    pb.innerHTML = toolbar(total) + tableWrap(cols, tableRows, true) + renderPg(total);
+  } catch(e) { document.getElementById('page-body').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`; }
+}
+async function viewSource(id) {
+  const r = await GET(`/api/theme-sources/${id}`);
+  if (!r) return;
+  S.dData = r; S.dType = 'datasource';
+  const facts = [
+    {l:'ID',v:r.id},{l:'名称',v:r.source_name},{l:'编码',v:r.source_code},
+    {l:'类型',v:r.source_type},{l:'状态',v:enabledBadge(r.enabled)},
+    {l:'调度(分钟)',v:r.schedule?.interval_minutes},{l:'主题数',v:r.topic_count},
+    {l:'创建时间',v:fmtDt(r.created_at)},{l:'更新时间',v:fmtDt(r.updated_at)},
+  ];
+  const factsHtml = `<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>
+    <div class="preview-block"><div class="preview-label">source_config</div><pre class="preview">${JSON.stringify(r.source_config,null,2)}</pre></div>
+    ${r.topics?.length ? `<div class="preview-block"><div class="preview-label">关联主题 (${r.topics.length})</div>${r.topics.map(t=>`<div style="padding:6px 0;border-bottom:1px solid #f2f3f5;font-size:12px"><b>${t.topic_name}</b> [${t.topic_code}] ${enabledBadge(t.enabled)}</div>`).join('')}</div>` : ''}`;
+  openDrawer(r.source_name + ' 详情', factsHtml);
+}
+function editSource(id) {
+  const r = _sources.find(s=>s.id===id);
+  if (!r) return;
+  S.dData = r; S.dMode = 'edit-source'; S.form = {
+    source_name: r.source_name, source_code: r.source_code, source_type: r.source_type,
+    enabled: r.enabled, interval_minutes: r.schedule?.interval_minutes??30,
+    source_config: JSON.stringify(r.source_config, null, 2),
+  };
+  renderSourceForm('编辑数据源');
+}
+function openAdd() {
+  if (S.curPage==='datasource') {
+    S.dMode='add-source'; S.form={source_type:'dsjfx_case_list',enabled:true,interval_minutes:30,source_config:'{}'};
+    renderSourceForm('新增数据源');
+  } else if (S.curPage==='template') {
+    S.dMode='add-template'; S.form={enabled:true};
+    renderTemplateForm('新增模板');
+  } else if (S.curPage==='contact') {
+    S.dMode='add-contact'; S.form={status:'active',phones:[]};
+    renderContactForm('新增联系人');
+  } else if (S.curPage==='customtask') {
+    S.dMode='add-task'; S.form={enabled:true};
+    renderTaskForm('新增任务');
+  } else if (S.curPage==='topic') {
+    S.dMode='add-topic'; S.form={enabled:true,filter_expr:'{}'};
+    renderTopicForm('新增主题');
+  }
+}
+function renderSourceForm(title) {
+  const f = S.form;
+  openDrawer(title, `
+    <div class="form-field"><div class="field-label">数据源名称<span class="field-req">*</span></div><input class="field-input" value="${f.source_name||''}" oninput="S.form.source_name=this.value" placeholder="请输入名称"></div>
+    <div class="form-field"><div class="field-label">数据源编码<span class="field-req">*</span></div><input class="field-input" value="${f.source_code||''}" oninput="S.form.source_code=this.value" placeholder="唯一编码，如 zq_dsjfx"></div>
+    <div class="form-field"><div class="field-label">类型</div><select class="field-select" onchange="S.form.source_type=this.value">
+      ${['dsjfx_case_list','db_sql_select','kingbase_multi_sql'].map(t=>`<option value="${t}" ${f.source_type===t?'selected':''}>${t}</option>`).join('')}
+    </select></div>
+    <div class="form-field"><div class="field-label">调度间隔(分钟)</div><input class="field-input" type="number" value="${f.interval_minutes||30}" oninput="S.form.interval_minutes=+this.value"></div>
+    <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'">
+      <option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option>
+    </select></div>
+    <div class="form-field"><div class="field-label">source_config (JSON)<span class="field-req">*</span></div><textarea class="field-textarea" rows="8" oninput="S.form.source_config=this.value">${f.source_config||'{}'}</textarea></div>
+  `, true);
+}
+async function toggleSource(id, enabled) {
+  const r = _sources.find(s=>s.id===id);
+  if (!r) return;
+  try {
+    await PUT(`/api/theme-sources/${id}`, {...r, enabled});
+    toast(enabled ? '已启用' : '已停用');
+    loadDatasource();
+  } catch(e) { toast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Topics
+// ══════════════════════════════════════════════════
+let _topics = [];
+async function loadTopic() {
+  const pb = document.getElementById('page-body');
+  pb.innerHTML = '<div class="loading">加载中…</div>';
+  try {
+    const sources = await GET('/api/theme-sources');
+    _sources = Array.isArray(sources) ? sources : [];
+    // Flatten topics from all source details
+    const details = await Promise.all(_sources.map(s=>GET(`/api/theme-sources/${s.id}`).catch(()=>null)));
+    _topics = details.flatMap(d=>d?.topics?.map(t=>({...t,source_name:d.source_name,source_id:d.id}))||[]);
+    let rows = _topics;
+    if (S.curTab===1) rows=rows.filter(r=>r.enabled);
+    if (S.curTab===2) rows=rows.filter(r=>!r.enabled);
+    if (S.search) { const q=S.search.toLowerCase(); rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q)); }
+    const total=rows.length;
+    const paged=rows.slice((S.pg-1)*S.pgSz,S.pg*S.pgSz);
+    const cols=[{l:'ID',w:'50px'},{l:'主题名称',w:''},{l:'编码',w:'140px'},{l:'数据源',w:'130px'},{l:'状态',w:'72px'}];
+    const tableRows=paged.map(r=>({
+      cells:[r.id,r.topic_name,r.topic_code,r.source_name,enabledBadge(r.enabled)],
+      acts:[
+        {label:'查看',c:'#2b5797',fn:`viewTopic(${r.id})`},
+        {label:'编辑',c:'#2b5797',fn:`editTopic(${r.id})`},
+        {label:r.enabled?'停用':'启用',c:r.enabled?'#c45a52':'#2b5797',fn:`toggleTopic(${r.id},${!r.enabled})`},
+      ]
+    }));
+    pb.innerHTML = toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+  } catch(e) { document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`; }
+}
+function viewTopic(id) {
+  const r=_topics.find(t=>t.id===id); if(!r) return;
+  const facts=[{l:'ID',v:r.id},{l:'主题名称',v:r.topic_name},{l:'编码',v:r.topic_code},{l:'所属数据源',v:r.source_name},{l:'状态',v:enabledBadge(r.enabled)}];
+  openDrawer(r.topic_name+' 详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div><div class="preview-block"><div class="preview-label">filter_expr</div><pre class="preview">${JSON.stringify(r.filter_expr,null,2)}</pre></div>`);
+}
+function editTopic(id) {
+  const r=_topics.find(t=>t.id===id); if(!r) return;
+  S.dData=r; S.dMode='edit-topic'; S.form={topic_name:r.topic_name,topic_code:r.topic_code,enabled:r.enabled,filter_expr:JSON.stringify(r.filter_expr,null,2),source_id:r.source_id};
+  renderTopicForm('编辑主题');
+}
+function renderTopicForm(title) {
+  const f=S.form;
+  const srcOpts=_sources.map(s=>`<option value="${s.id}" ${f.source_id==s.id?'selected':''}>${s.source_name}</option>`).join('');
+  openDrawer(title,`
+    <div class="form-field"><div class="field-label">所属数据源<span class="field-req">*</span></div><select class="field-select" onchange="S.form.source_id=+this.value"><option value="">请选择</option>${srcOpts}</select></div>
+    <div class="form-field"><div class="field-label">主题名称<span class="field-req">*</span></div><input class="field-input" value="${f.topic_name||''}" oninput="S.form.topic_name=this.value" placeholder="请输入主题名称"></div>
+    <div class="form-field"><div class="field-label">主题编码<span class="field-req">*</span></div><input class="field-input" value="${f.topic_code||''}" oninput="S.form.topic_code=this.value" placeholder="唯一编码"></div>
+    <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'"><option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option></select></div>
+    <div class="form-field"><div class="field-label">filter_expr (JSON)</div><textarea class="field-textarea" rows="8" oninput="S.form.filter_expr=this.value">${f.filter_expr||'{}'}</textarea></div>
+  `,true);
+}
+async function toggleTopic(id,enabled) {
+  const r=_topics.find(t=>t.id===id); if(!r) return;
+  try { await PUT(`/api/theme-topics/${id}`,{...r,enabled}); toast(enabled?'已启用':'已停用'); loadTopic(); }
+  catch(e) { toast(e.message,'error'); }
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Templates
+// ══════════════════════════════════════════════════
+let _templates = [];
+async function loadTemplate() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    const data=await GET('/api/message-templates');
+    _templates=Array.isArray(data)?data:[];
+    let rows=_templates;
+    if(S.curTab===1)rows=rows.filter(r=>r.enabled);
+    if(S.curTab===2)rows=rows.filter(r=>!r.enabled);
+    if(S.search){const q=S.search.toLowerCase();rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));}
+    const total=rows.length; const paged=rows.slice((S.pg-1)*S.pgSz,S.pg*S.pgSz);
+    const cols=[{l:'ID',w:'50px'},{l:'模板名称',w:''},{l:'编码',w:'140px'},{l:'状态',w:'72px'},{l:'更新时间',w:'140px'}];
+    const tableRows=paged.map(r=>({
+      cells:[r.id,r.template_name,r.template_code,enabledBadge(r.enabled),fmtDt(r.updated_at)],
+      acts:[{label:'查看',c:'#2b5797',fn:`viewTemplate(${r.id})`},{label:'编辑',c:'#2b5797',fn:`editTemplate(${r.id})`},{label:r.enabled?'停用':'启用',c:r.enabled?'#c45a52':'#2b5797',fn:`toggleTemplate(${r.id},${!r.enabled})`}]
+    }));
+    pb.innerHTML=toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+function viewTemplate(id) {
+  const r=_templates.find(t=>t.id===id); if(!r) return;
+  const facts=[{l:'ID',v:r.id},{l:'名称',v:r.template_name},{l:'编码',v:r.template_code},{l:'状态',v:enabledBadge(r.enabled)},{l:'更新时间',v:fmtDt(r.updated_at)}];
+  openDrawer(r.template_name,`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div><div class="preview-block"><div class="preview-label">模板内容</div><pre class="preview">${r.template_content}</pre></div>${r.render_example?`<div class="preview-block"><div class="preview-label">渲染示例</div><pre class="preview">${r.render_example}</pre></div>`:''}`);
+}
+function editTemplate(id) {
+  const r=_templates.find(t=>t.id===id); if(!r) return;
+  S.dData=r; S.dMode='edit-template'; S.form={template_name:r.template_name,template_code:r.template_code,template_content:r.template_content,render_example:r.render_example,enabled:r.enabled};
+  renderTemplateForm('编辑模板');
+}
+function renderTemplateForm(title) {
+  const f=S.form;
+  openDrawer(title,`
+    <div class="form-field"><div class="field-label">模板名称<span class="field-req">*</span></div><input class="field-input" value="${f.template_name||''}" oninput="S.form.template_name=this.value"></div>
+    <div class="form-field"><div class="field-label">模板编码<span class="field-req">*</span></div><input class="field-input" value="${f.template_code||''}" oninput="S.form.template_code=this.value" placeholder="唯一编码"></div>
+    <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'"><option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option></select></div>
+    <div class="form-field"><div class="field-label">模板内容<span class="field-req">*</span></div><textarea class="field-textarea" rows="6" oninput="S.form.template_content=this.value">${f.template_content||''}</textarea></div>
+    <div class="form-field"><div class="field-label">渲染示例</div><textarea class="field-textarea" rows="3" oninput="S.form.render_example=this.value">${f.render_example||''}</textarea></div>
+  `,true);
+}
+async function toggleTemplate(id,enabled) {
+  const r=_templates.find(t=>t.id===id); if(!r) return;
+  try{await PUT(`/api/message-templates/${id}`,{enabled});toast(enabled?'已启用':'已停用');loadTemplate();}catch(e){toast(e.message,'error');}
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Contacts
+// ══════════════════════════════════════════════════
+let _contacts = [];
+async function loadContact() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    const params={limit:S.pgSz,offset:(S.pg-1)*S.pgSz,status:'all'};
+    if(S.search) params.keyword=S.search;
+    const data=await GET('/api/contacts',params);
+    const items=data?.items||data||[];
+    const total=data?.total||items.length;
+    _contacts=items;
+    const cols=[{l:'ID',w:'50px'},{l:'姓名',w:'80px'},{l:'职务',w:'90px'},{l:'所属单位',w:''},{l:'手机号',w:'120px'},{l:'状态',w:'72px'}];
+    const tableRows=items.map(r=>({
+      cells:[r.id,r.xm||'—',r.zw||'—',r.sspcs||r.xq||'—',r.phones?.[0]?.phone_raw||'—',badge(r.status==='active'?'启用':'已停用')],
+      acts:[{label:'查看',c:'#2b5797',fn:`viewContact(${r.id})`},{label:'编辑',c:'#2b5797',fn:`editContact(${r.id})`}]
+    }));
+    pb.innerHTML=toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+function viewContact(id) {
+  const r=_contacts.find(c=>c.id===id); if(!r) return;
+  const facts=[{l:'ID',v:r.id},{l:'姓名',v:r.xm},{l:'职务',v:r.zw},{l:'所属单位',v:r.sspcs||r.xq},{l:'单位代码',v:r.sspcsdm||r.xqdm},{l:'状态',v:badge(r.status==='active'?'启用':'已停用')},{l:'创建时间',v:fmtDt(r.created_at)}];
+  const phones=r.phones?.map(p=>`<div style="padding:4px 0;font-size:12px">${p.phone_raw} ${p.is_primary?'<b>[主]</b>':''} ${badge(p.status==='active'?'启用':'已停用')}</div>`).join('')||'—';
+  openDrawer(r.xm||'联系人详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div><div class="preview-block"><div class="preview-label">手机号码</div>${phones}</div>`);
+}
+function editContact(id) {
+  const r=_contacts.find(c=>c.id===id); if(!r) return;
+  S.dData=r; S.dMode='edit-contact'; S.form={xm:r.xm,zw:r.zw,sspcs:r.sspcs,sspcsdm:r.sspcsdm,status:r.status||'active'};
+  renderContactForm('编辑联系人');
+}
+function renderContactForm(title) {
+  const f=S.form;
+  openDrawer(title,`
+    <div class="form-field"><div class="field-label">姓名</div><input class="field-input" value="${f.xm||''}" oninput="S.form.xm=this.value"></div>
+    <div class="form-field"><div class="field-label">职务</div><input class="field-input" value="${f.zw||''}" oninput="S.form.zw=this.value"></div>
+    <div class="form-field"><div class="field-label">所属单位</div><input class="field-input" value="${f.sspcs||''}" oninput="S.form.sspcs=this.value"></div>
+    <div class="form-field"><div class="field-label">单位代码</div><input class="field-input" value="${f.sspcsdm||''}" oninput="S.form.sspcsdm=this.value"></div>
+    <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.status=this.value"><option value="active" ${f.status==='active'?'selected':''}>启用</option><option value="inactive" ${f.status==='inactive'?'selected':''}>停用</option></select></div>
+  `,true);
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Hit Results
+// ══════════════════════════════════════════════════
+async function loadHitresult() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    const statusMap=['','sent','pending',''];
+    const params={limit:S.pgSz,offset:(S.pg-1)*S.pgSz};
+    if(S.curTab>0 && statusMap[S.curTab]) params.send_status=statusMap[S.curTab];
+    if(S.search) params.keyword=S.search;
+    const data=await GET('/api/theme-results',params);
+    const items=data?.items||[];
+    const total=data?.total||0;
+    const cols=[{l:'ID',w:'60px'},{l:'数据源',w:'120px'},{l:'主题',w:'120px'},{l:'警情编号',w:'120px'},{l:'发送状态',w:'80px'},{l:'时间',w:'140px'}];
+    const tableRows=items.map(r=>({
+      cells:[r.id,r.source_name,r.topic_name,r.case_no||r.event_key,statusBadge(r.send_status),fmtDt(r.created_at)],
+      acts:[{label:'查看',c:'#2b5797',fn:`viewResult(${r.id})`}]
+    }));
+    pb.innerHTML=toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+    document.querySelector('.toolbar input')?.addEventListener('input',e=>onSearch(e.target.value));
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+async function viewResult(id) {
+  try {
+    const r=await GET(`/api/theme-results/${id}`); if(!r) return;
+    const facts=[{l:'ID',v:r.id},{l:'数据源',v:r.source_name},{l:'主题',v:r.topic_name},{l:'主题编码',v:r.topic_code},{l:'警情编号',v:r.case_no},{l:'事件键',v:r.event_key},{l:'发送状态',v:statusBadge(r.send_status)},{l:'接收人',v:r.receiver_mobiles?.join(', ')},{l:'时间',v:fmtDt(r.created_at)}];
+    openDrawer('命中结果详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${r.rendered_message?`<div class="preview-block"><div class="preview-label">短信内容</div><pre class="preview">${r.rendered_message}</pre></div>`:''}`);
+  } catch(e){toast(e.message,'error');}
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Send Records
+// ══════════════════════════════════════════════════
+async function loadSendrecord() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    const statusMap=['','success','failed'];
+    const params={limit:S.pgSz,offset:(S.pg-1)*S.pgSz};
+    if(S.curTab>0&&statusMap[S.curTab]) params.status=statusMap[S.curTab];
+    if(S.search) params.keyword=S.search;
+    const data=await GET('/api/theme-sms-logs',params);
+    const items=data?.items||[];
+    const total=data?.total||0;
+    const cols=[{l:'ID',w:'60px'},{l:'数据源',w:'100px'},{l:'主题',w:'100px'},{l:'手机号',w:'110px'},{l:'内容摘要',w:''},{l:'状态',w:'72px'},{l:'时间',w:'140px'}];
+    const tableRows=items.map(r=>({
+      cells:[r.id,r.source_name,r.topic_name,r.mobile,r.content_preview||'—',statusBadge(r.status),fmtDt(r.created_at)],
+      acts:[{label:'查看',c:'#2b5797',fn:`viewSmsLog(${r.id})`}]
+    }));
+    pb.innerHTML=toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+async function viewSmsLog(id) {
+  try {
+    const r=await GET(`/api/theme-sms-logs/${id}`); if(!r) return;
+    const facts=[{l:'ID',v:r.id},{l:'数据源',v:r.source_name},{l:'主题',v:r.topic_name},{l:'手机号',v:r.mobile},{l:'状态',v:statusBadge(r.status)},{l:'提供商',v:r.provider},{l:'消息ID',v:r.provider_msg_id||'—'},{l:'时间',v:fmtDt(r.created_at)},{l:'错误信息',v:r.error_message||'—'}];
+    openDrawer('发送记录详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${r.content?`<div class="preview-block"><div class="preview-label">短信内容</div><pre class="preview">${r.content}</pre></div>`:''}`);
+  } catch(e){toast(e.message,'error');}
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Run History
+// ══════════════════════════════════════════════════
+async function loadRunhistory() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    if(S.curTab===0) {
+      const data=await GET('/api/theme-runs',{limit:50});
+      const items=Array.isArray(data)?data:[];
+      const cols=[{l:'ID',w:'60px'},{l:'数据源ID',w:'80px'},{l:'运行号',w:'120px'},{l:'状态',w:'80px'},{l:'抓取数',w:'70px'},{l:'命中数',w:'70px'},{l:'发送数',w:'70px'},{l:'开始时间',w:'140px'}];
+      const tableRows=items.map(r=>({
+        cells:[r.id,r.source_id,r.run_no,statusBadge(r.status),fmtN(r.fetched_count),fmtN(r.matched_count),fmtN(r.send_count),fmtDt(r.started_at)],
+        acts:[{label:'详情',c:'#2b5797',fn:`viewThemeRun(${r.id})`}]
+      }));
+      pb.innerHTML=tableWrap(cols,tableRows,true);
+    } else {
+      const data=await GET('/api/task-runs',{limit:50});
+      const items=Array.isArray(data)?data:[];
+      const cols=[{l:'ID',w:'60px'},{l:'任务ID',w:'70px'},{l:'运行号',w:'120px'},{l:'状态',w:'80px'},{l:'结果数',w:'70px'},{l:'命中数',w:'70px'},{l:'发送数',w:'70px'},{l:'开始时间',w:'140px'}];
+      const tableRows=items.map(r=>({
+        cells:[r.id,r.task_id,r.run_no,statusBadge(r.status),fmtN(r.result_count),fmtN(r.hit_count),fmtN(r.send_count),fmtDt(r.started_at)],
+        acts:[{label:'详情',c:'#2b5797',fn:`viewTaskRun(${r.id})`}]
+      }));
+      pb.innerHTML=tableWrap(cols,tableRows,true);
+    }
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+async function viewThemeRun(id) {
+  try {
+    const r=await GET(`/api/theme-runs/${id}`); if(!r) return;
+    const facts=[{l:'ID',v:r.id},{l:'数据源ID',v:r.source_id},{l:'运行号',v:r.run_no},{l:'状态',v:statusBadge(r.status)},{l:'抓取数',v:fmtN(r.fetched_count)},{l:'命中数',v:fmtN(r.matched_count)},{l:'发送数',v:fmtN(r.send_count)},{l:'开始',v:fmtDt(r.started_at)},{l:'结束',v:fmtDt(r.finished_at)}];
+    openDrawer('主题数据源运行详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${r.error_message?`<div class="preview-block"><div class="preview-label">错误信息</div><pre class="preview">${r.error_message}</pre></div>`:''}`);
+  } catch(e){toast(e.message,'error');}
+}
+async function viewTaskRun(id) {
+  try {
+    const r=await GET(`/api/task-runs/${id}`); if(!r) return;
+    const facts=[{l:'ID',v:r.id},{l:'任务ID',v:r.task_id},{l:'运行号',v:r.run_no},{l:'状态',v:statusBadge(r.status)},{l:'结果数',v:fmtN(r.result_count)},{l:'命中数',v:fmtN(r.hit_count)},{l:'发送数',v:fmtN(r.send_count)},{l:'开始',v:fmtDt(r.started_at)},{l:'结束',v:fmtDt(r.finished_at)}];
+    openDrawer('脚本任务运行详情',`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${r.error_message?`<div class="preview-block"><div class="preview-label">错误信息</div><pre class="preview">${r.error_message}</pre></div>`:''}`);
+  } catch(e){toast(e.message,'error');}
+}
+
+// ══════════════════════════════════════════════════
+//  Page: Custom Tasks
+// ══════════════════════════════════════════════════
+let _tasks = [], _scripts = [];
+async function loadCustomtask() {
+  const pb=document.getElementById('page-body');
+  pb.innerHTML='<div class="loading">加载中…</div>';
+  try {
+    const [tasks,scripts]=await Promise.all([GET('/api/tasks'),GET('/api/scripts').catch(()=>[])]);
+    _tasks=Array.isArray(tasks)?tasks:[];
+    _scripts=Array.isArray(scripts)?scripts:[];
+    let rows=_tasks;
+    if(S.curTab===1)rows=rows.filter(r=>r.enabled);
+    if(S.curTab===2)rows=rows.filter(r=>!r.enabled);
+    if(S.search){const q=S.search.toLowerCase();rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));}
+    const total=rows.length; const paged=rows.slice((S.pg-1)*S.pgSz,S.pg*S.pgSz);
+    const cols=[{l:'ID',w:'50px'},{l:'任务名称',w:''},{l:'脚本ID',w:'70px'},{l:'调度',w:'130px'},{l:'状态',w:'72px'},{l:'更新时间',w:'140px'}];
+    const tableRows=paged.map(r=>{
+      const sched=r.schedules?.[0];
+      const schedStr=sched?`每${sched.interval_value}${sched.interval_unit==='minute'?'分钟':'小时'}`:'未设置';
+      return {
+        cells:[r.id,r.task_name,r.script_id,schedStr,enabledBadge(r.enabled),fmtDt(r.updated_at)],
+        acts:[
+          {label:'查看',c:'#2b5797',fn:`viewTask(${r.id})`},
+          {label:'执行',c:'#2b5797',fn:`runTask(${r.id})`},
+          {label:r.enabled?'停用':'启用',c:r.enabled?'#c45a52':'#2b5797',fn:`toggleTask(${r.id},${!r.enabled})`},
+        ]
+      };
+    });
+    pb.innerHTML=toolbar(total)+tableWrap(cols,tableRows,true)+renderPg(total);
+  } catch(e){document.getElementById('page-body').innerHTML=`<div class="empty-state"><div class="empty-icon">⚠</div>${e.message}</div>`;}
+}
+function viewTask(id) {
+  const r=_tasks.find(t=>t.id===id); if(!r) return;
+  const sched=r.schedules?.[0];
+  const facts=[{l:'ID',v:r.id},{l:'任务名称',v:r.task_name},{l:'脚本ID',v:r.script_id},{l:'版本ID',v:r.script_version_id},{l:'状态',v:enabledBadge(r.enabled)},{l:'去重窗口',v:r.dedup_window_minutes+'分钟'},{l:'调度',v:sched?`每${sched.interval_value}${sched.interval_unit==='minute'?'分钟':'小时'}`:'未设置'},{l:'更新时间',v:fmtDt(r.updated_at)}];
+  openDrawer(r.task_name,`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${Object.keys(r.runtime_config||{}).length?`<div class="preview-block"><div class="preview-label">runtime_config</div><pre class="preview">${JSON.stringify(r.runtime_config,null,2)}</pre></div>`:''}`);
+}
+async function runTask(id) {
+  try { await POST(`/api/tasks/${id}/run`,{dry_run:false}); toast('任务已触发'); loadCustomtask(); }
+  catch(e){toast(e.message,'error');}
+}
+async function toggleTask(id,enabled) {
+  try {
+    await POST(`/api/tasks/${id}/${enabled?'enable':'disable'}`);
+    toast(enabled?'已启用':'已停用'); loadCustomtask();
+  } catch(e){toast(e.message,'error');}
+}
+function renderTaskForm(title) {
+  const f=S.form;
+  const scriptOpts=_scripts.map(s=>`<option value="${s.id}" ${f.script_id==s.id?'selected':''}>${s.script_name}</option>`).join('');
+  openDrawer(title,`
+    <div class="form-field"><div class="field-label">任务名称<span class="field-req">*</span></div><input class="field-input" value="${f.task_name||''}" oninput="S.form.task_name=this.value"></div>
+    <div class="form-field"><div class="field-label">脚本</div><select class="field-select" onchange="S.form.script_id=+this.value"><option value="">请选择脚本</option>${scriptOpts}</select></div>
+    <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'"><option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option></select></div>
+    <div class="form-field"><div class="field-label">runtime_config (JSON)</div><textarea class="field-textarea" rows="6" oninput="S.form.runtime_config=this.value">${f.runtime_config||'{}'}</textarea></div>
+  `,true);
+}
+
+// ══════════════════════════════════════════════════
+//  doSave dispatcher
+// ══════════════════════════════════════════════════
+async function doSave() {
+  const f = S.form;
+  try {
+    if (S.dMode==='edit-source') {
+      let cfg; try{cfg=JSON.parse(f.source_config);}catch(e){toast('source_config JSON格式错误','error');return;}
+      await PUT(`/api/theme-sources/${S.dData.id}`,{source_name:f.source_name,source_code:f.source_code,source_type:f.source_type,enabled:f.enabled,source_config:cfg,schedule:{interval_minutes:+f.interval_minutes,enabled:true}});
+      toast('保存成功'); closeDrawer(); loadDatasource();
+    } else if (S.dMode==='add-source') {
+      let cfg; try{cfg=JSON.parse(f.source_config);}catch(e){toast('source_config JSON格式错误','error');return;}
+      await POST('/api/theme-sources',{source_name:f.source_name,source_code:f.source_code,source_type:f.source_type,enabled:f.enabled,source_config:cfg,schedule:{interval_minutes:+f.interval_minutes,enabled:true}});
+      toast('创建成功'); closeDrawer(); loadDatasource();
+    } else if (S.dMode==='edit-topic') {
+      let fe; try{fe=JSON.parse(f.filter_expr);}catch(e){toast('filter_expr JSON格式错误','error');return;}
+      await PUT(`/api/theme-topics/${S.dData.id}`,{topic_name:f.topic_name,topic_code:f.topic_code,enabled:f.enabled,filter_expr:fe});
+      toast('保存成功'); closeDrawer(); loadTopic();
+    } else if (S.dMode==='add-topic') {
+      if(!f.source_id){toast('请选择数据源','error');return;}
+      let fe; try{fe=JSON.parse(f.filter_expr);}catch(e){toast('filter_expr JSON格式错误','error');return;}
+      await POST(`/api/theme-sources/${f.source_id}/topics`,{topic_name:f.topic_name,topic_code:f.topic_code,enabled:f.enabled,filter_expr:fe});
+      toast('创建成功'); closeDrawer(); loadTopic();
+    } else if (S.dMode==='edit-template') {
+      await PUT(`/api/message-templates/${S.dData.id}`,{template_name:f.template_name,template_code:f.template_code,template_content:f.template_content,render_example:f.render_example||'',enabled:f.enabled});
+      toast('保存成功'); closeDrawer(); loadTemplate();
+    } else if (S.dMode==='add-template') {
+      await POST('/api/message-templates',{template_name:f.template_name,template_code:f.template_code,template_content:f.template_content,render_example:f.render_example||'',enabled:f.enabled});
+      toast('创建成功'); closeDrawer(); loadTemplate();
+    } else if (S.dMode==='edit-contact') {
+      await PUT(`/api/contacts/${S.dData.id}`,{xm:f.xm,zw:f.zw,sspcs:f.sspcs,sspcsdm:f.sspcsdm,status:f.status});
+      toast('保存成功'); closeDrawer(); loadContact();
+    } else if (S.dMode==='add-contact') {
+      await POST('/api/contacts',{xm:f.xm,zw:f.zw,sspcs:f.sspcs,sspcsdm:f.sspcsdm,status:f.status||'active',phones:[]});
+      toast('创建成功'); closeDrawer(); loadContact();
+    }
+  } catch(e){toast(e.message,'error');}
+}
+
+// ══════════════════════════════════════════════════
+//  Load page dispatcher
+// ══════════════════════════════════════════════════
+async function loadPage() {
+  renderPageHdr();
+  const loaders = {
+    overview: loadOverview, datasource: loadDatasource, topic: loadTopic,
+    template: loadTemplate, contact: loadContact, hitresult: loadHitresult,
+    sendrecord: loadSendrecord, runhistory: loadRunhistory, customtask: loadCustomtask,
+  };
+  const fn = loaders[S.curPage];
+  if (fn) await fn();
+}
+</script>
 </body>
 </html>
