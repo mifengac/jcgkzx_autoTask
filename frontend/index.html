@@ -164,6 +164,9 @@ pre.preview{margin:0;padding:10px 12px;background:#fafbfc;border:1px solid #e5e6
 
 /* ── Loading ────────────────────────────────────── */
 .loading{padding:32px;text-align:center;color:#86909c;font-size:13px}
+
+/* ── Hidden override ────────────────────────────── */
+#pg-login[hidden],#pg-app[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -479,6 +482,15 @@ function tableWrap(cols, rows, acts) {
 
 function fmtDt(s) { return s ? String(s).replace('T',' ').substring(0,16) : '—'; }
 function fmtN(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 // ══════════════════════════════════════════════════
 //  Page: Overview
@@ -917,8 +929,10 @@ async function loadCustomtask() {
         cells:[r.id,r.task_name,r.script_id,schedStr,enabledBadge(r.enabled),fmtDt(r.updated_at)],
         acts:[
           {label:'查看',c:'#2b5797',fn:`viewTask(${r.id})`},
+          {label:'编辑',c:'#2b5797',fn:`editTask(${r.id})`},
           {label:'执行',c:'#2b5797',fn:`runTask(${r.id})`},
           {label:r.enabled?'停用':'启用',c:r.enabled?'#c45a52':'#2b5797',fn:`toggleTask(${r.id},${!r.enabled})`},
+          {label:'删除',c:'#c45a52',fn:`deleteTask(${r.id})`},
         ]
       };
     });
@@ -931,6 +945,15 @@ function viewTask(id) {
   const facts=[{l:'ID',v:r.id},{l:'任务名称',v:r.task_name},{l:'脚本ID',v:r.script_id},{l:'版本ID',v:r.script_version_id},{l:'状态',v:enabledBadge(r.enabled)},{l:'去重窗口',v:r.dedup_window_minutes+'分钟'},{l:'调度',v:sched?`每${sched.interval_value}${sched.interval_unit==='minute'?'分钟':'小时'}`:'未设置'},{l:'更新时间',v:fmtDt(r.updated_at)}];
   openDrawer(r.task_name,`<div class="facts-grid">${facts.map(f=>`<div class="fact-cell"><div class="fact-label">${f.l}</div><div class="fact-val">${f.v??'—'}</div></div>`).join('')}</div>${Object.keys(r.runtime_config||{}).length?`<div class="preview-block"><div class="preview-label">runtime_config</div><pre class="preview">${JSON.stringify(r.runtime_config,null,2)}</pre></div>`:''}`);
 }
+function editTask(id) {
+  const r=_tasks.find(t=>t.id===id); if(!r) return;
+  S.dData=r; S.dMode='edit-task'; S.form={task_name:r.task_name,script_id:r.script_id,script_version_id:r.script_version_id,enabled:r.enabled,runtime_config:JSON.stringify(r.runtime_config||{},null,2)};
+  renderTaskForm('编辑任务');
+}
+async function deleteTask(id) {
+  if(!window.confirm('确定要删除该自定义任务吗？删除后该任务的调度、规则和运行记录都会一起清除。')) return;
+  try{await DEL(`/api/tasks/${id}`);toast('删除成功');loadCustomtask();}catch(e){toast(e.message,'error');}
+}
 async function runTask(id) {
   try { await POST(`/api/tasks/${id}/run`,{dry_run:false}); toast('任务已触发'); loadCustomtask(); }
   catch(e){toast(e.message,'error');}
@@ -941,14 +964,28 @@ async function toggleTask(id,enabled) {
     toast(enabled?'已启用':'已停用'); loadCustomtask();
   } catch(e){toast(e.message,'error');}
 }
+window.onScriptChange = function(scriptId) {
+  S.form.script_id = Number(scriptId) || 0;
+  const script = _scripts.find(s => s.id === S.form.script_id);
+  const versions = script?.versions || [];
+  const select = document.getElementById('task_script_version_id');
+  if (select) {
+    select.innerHTML = `<option value="">请选择版本</option>` + versions.map(v => `<option value="${v.id}" ${S.form.script_version_id==v.id?'selected':''}>${v.version_no}</option>`).join('');
+    S.form.script_version_id = Number(select.value) || (versions[0]?.id || 0);
+  }
+}
 function renderTaskForm(title) {
   const f=S.form;
-  const scriptOpts=_scripts.map(s=>`<option value="${s.id}" ${f.script_id==s.id?'selected':''}>${s.script_name}</option>`).join('');
+  const scriptOpts=_scripts.map(s=>`<option value="${s.id}" ${f.script_id==s.id?'selected':''}>${escapeHtml(s.script_name)} (${escapeHtml(s.script_code)})</option>`).join('');
+  const currentScript = _scripts.find(s => s.id === f.script_id) || _scripts[0];
+  const versions = currentScript?.versions || [];
+  const versionOpts = versions.map(v => `<option value="${v.id}" ${f.script_version_id==v.id?'selected':''}>${escapeHtml(v.version_no)}</option>`).join('');
   openDrawer(title,`
-    <div class="form-field"><div class="field-label">任务名称<span class="field-req">*</span></div><input class="field-input" value="${f.task_name||''}" oninput="S.form.task_name=this.value"></div>
-    <div class="form-field"><div class="field-label">脚本</div><select class="field-select" onchange="S.form.script_id=+this.value"><option value="">请选择脚本</option>${scriptOpts}</select></div>
+    <div class="form-field"><div class="field-label">任务名称<span class="field-req">*</span></div><input class="field-input" value="${escapeHtml(f.task_name||'')}" oninput="S.form.task_name=this.value"></div>
+    <div class="form-field"><div class="field-label">脚本<span class="field-req">*</span></div><select class="field-select" onchange="onScriptChange(this.value)"><option value="">请选择脚本</option>${scriptOpts}</select></div>
+    <div class="form-field"><div class="field-label">脚本版本<span class="field-req">*</span></div><select id="task_script_version_id" class="field-select" onchange="S.form.script_version_id=Number(this.value)"><option value="">请选择版本</option>${versionOpts}</select></div>
     <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'"><option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option></select></div>
-    <div class="form-field"><div class="field-label">runtime_config (JSON)</div><textarea class="field-textarea" rows="6" oninput="S.form.runtime_config=this.value">${f.runtime_config||'{}'}</textarea></div>
+    <div class="form-field"><div class="field-label">runtime_config (JSON)</div><textarea class="field-textarea" rows="6" oninput="S.form.runtime_config=this.value">${escapeHtml(f.runtime_config||'{}')}</textarea></div>
   `,true);
 }
 
@@ -987,6 +1024,30 @@ async function doSave() {
     } else if (S.dMode==='add-contact') {
       await POST('/api/contacts',{xm:f.xm,zw:f.zw,sspcs:f.sspcs,sspcsdm:f.sspcsdm,status:f.status||'active',phones:[]});
       toast('创建成功'); closeDrawer(); loadContact();
+    } else if (S.dMode==='edit-task') {
+      let rc; try{rc=JSON.parse(f.runtime_config);}catch(e){toast('runtime_config JSON格式错误','error');return;}
+      if(!f.script_id){toast('请选择脚本','error');return;}
+      if(!f.script_version_id){toast('请选择脚本版本','error');return;}
+      await PUT(`/api/tasks/${S.dData.id}`, {
+        task_name: f.task_name,
+        script_id: f.script_id,
+        script_version_id: f.script_version_id,
+        enabled: f.enabled,
+        runtime_config: rc
+      });
+      toast('保存成功'); closeDrawer(); loadCustomtask();
+    } else if (S.dMode==='add-task') {
+      let rc; try{rc=JSON.parse(f.runtime_config);}catch(e){toast('runtime_config JSON格式错误','error');return;}
+      if(!f.script_id){toast('请选择脚本','error');return;}
+      if(!f.script_version_id){toast('请选择脚本版本','error');return;}
+      await POST('/api/tasks', {
+        task_name: f.task_name,
+        script_id: f.script_id,
+        script_version_id: f.script_version_id,
+        enabled: f.enabled,
+        runtime_config: rc
+      });
+      toast('创建成功'); closeDrawer(); loadCustomtask();
     }
   } catch(e){toast(e.message,'error');}
 }

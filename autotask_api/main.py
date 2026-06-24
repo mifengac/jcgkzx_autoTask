@@ -20,7 +20,6 @@ from autotask_api.config import get_settings
 from autotask_api.database import SessionLocal, init_db
 from autotask_api.services.auth import (
     ensure_default_platform_user,
-    get_current_user_from_request,
     require_authenticated_user,
 )
 from autotask_api.services.scheduler import scheduler_service
@@ -68,20 +67,12 @@ def on_shutdown() -> None:
 
 @app.get("/", response_model=None)
 def index(request: Request) -> FileResponse | RedirectResponse:
-    with SessionLocal() as db:
-        user = get_current_user_from_request(request, db)
-    if user is None:
-        return RedirectResponse(url="/login", status_code=303)
     return FileResponse(frontend_dir / "index.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/login", response_model=None)
 def login_page(request: Request) -> FileResponse | RedirectResponse:
-    with SessionLocal() as db:
-        user = get_current_user_from_request(request, db)
-    if user is not None:
-        return RedirectResponse(url="/", status_code=303)
-    return FileResponse(frontend_dir / "login.html", headers={"Cache-Control": "no-store"})
+    return FileResponse(frontend_dir / "index.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/logout")
