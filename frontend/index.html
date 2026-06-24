@@ -417,14 +417,19 @@ const PAGE_CFG = {
 
 function renderPageHdr() {
   const cfg = PAGE_CFG[S.curPage];
-  const addBtn = cfg.add
-    ? `<button class="btn btn-primary" onclick="openAdd()">＋ ${cfg.add}</button>` : '';
+  let actionBtns = '';
+  if (S.curPage === 'customtask') {
+    actionBtns += `<button class="btn btn-default" style="margin-right:10px" onclick="openUploadScript()">＋ 上传脚本</button>`;
+  }
+  if (cfg.add) {
+    actionBtns += `<button class="btn btn-primary" onclick="openAdd()">＋ ${cfg.add}</button>`;
+  }
   const tabs = cfg.tabs.length > 1
     ? `<div class="tabs">${cfg.tabs.map((t,i)=>`<div class="tab ${i===S.curTab?'active':''}" onclick="switchTab(${i})">${t}</div>`).join('')}</div>` : '';
   document.getElementById('page-hdr').innerHTML = `
     <div class="page-hdr-top">
       <div><div class="page-title">${cfg.title}</div><div class="page-desc">${cfg.desc}</div></div>
-      ${addBtn}
+      <div style="display:flex;align-items:center">${actionBtns}</div>
     </div>${tabs}`;
 }
 
@@ -950,6 +955,21 @@ function editTask(id) {
   S.dData=r; S.dMode='edit-task'; S.form={task_name:r.task_name,script_id:r.script_id,script_version_id:r.script_version_id,enabled:r.enabled,runtime_config:JSON.stringify(r.runtime_config||{},null,2)};
   renderTaskForm('编辑任务');
 }
+function openUploadScript() {
+  S.dMode = 'upload-script';
+  S.form = {};
+  openDrawer('上传脚本 ZIP', `
+    <form id="script-upload-form" onsubmit="return false;">
+      <div class="form-field"><div class="field-label">脚本名称<span class="field-req">*</span></div><input class="field-input" name="script_name" required placeholder="例如：警情号码提取"></div>
+      <div class="form-field"><div class="field-label">脚本编码<span class="field-req">*</span></div><input class="field-input" name="script_code" required placeholder="例如：jq_number_extract"></div>
+      <div class="form-field"><div class="field-label">版本号<span class="field-req">*</span></div><input class="field-input" name="version_no" required placeholder="例如：v1.0"></div>
+      <div class="form-field"><div class="field-label">入口文件</div><input class="field-input" name="entry_file" placeholder="例如：jq_number_extract.py (选填)"></div>
+      <div class="form-field"><div class="field-label">入口函数</div><input class="field-input" name="entry_func" placeholder="例如：run (默认 run)"></div>
+      <div class="form-field"><div class="field-label">变更说明</div><input class="field-input" name="change_log" placeholder="本次版本的修改说明"></div>
+      <div class="form-field"><div class="field-label">ZIP 包<span class="field-req">*</span></div><input class="field-input" type="file" name="package" accept=".zip" required></div>
+    </form>
+  `, true);
+}
 async function deleteTask(id) {
   if(!window.confirm('确定要删除该自定义任务吗？删除后该任务的调度、规则和运行记录都会一起清除。')) return;
   try{await DEL(`/api/tasks/${id}`);toast('删除成功');loadCustomtask();}catch(e){toast(e.message,'error');}
@@ -1048,6 +1068,25 @@ async function doSave() {
         runtime_config: rc
       });
       toast('创建成功'); closeDrawer(); loadCustomtask();
+    } else if (S.dMode==='upload-script') {
+      const formEl = document.getElementById('script-upload-form');
+      if (!formEl.checkValidity()) {
+        formEl.reportValidity();
+        return;
+      }
+      const fd = new FormData(formEl);
+      const r = await fetch('/api/scripts/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+      toast('脚本上传成功');
+      closeDrawer();
+      loadCustomtask();
     }
   } catch(e){toast(e.message,'error');}
 }
