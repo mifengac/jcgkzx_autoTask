@@ -1,0 +1,7 @@
+{
+  "script_code": "zq_full_resync",
+  "script_name": "ZQ Data Full Resync",
+  "script_type": "python_zip",
+  "entry_file": "zq_full_resync.py",
+  "entry_func": "main"
+}

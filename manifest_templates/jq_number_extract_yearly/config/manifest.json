@@ -1,0 +1,7 @@
+{
+  "script_code": "jq_number_extract_yearly",
+  "script_name": "警情文本号码提取-年份历史回溯",
+  "script_type": "python_zip",
+  "entry_file": "jq_number_extract_yearly.py",
+  "entry_func": "main"
+}
