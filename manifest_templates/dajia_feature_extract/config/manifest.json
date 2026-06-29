@@ -1,0 +1,7 @@
+{
+  "script_code": "dajia_feature_extract",
+  "script_name": "打架斗殴语义特征提取",
+  "script_type": "python_zip",
+  "entry_file": "dajia_feature_extract.py",
+  "entry_func": "run"
+}

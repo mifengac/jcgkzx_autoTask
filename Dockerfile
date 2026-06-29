@@ -33,7 +33,7 @@ ENV PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:$PATH \
     ORACLE_CLIENT_LIB_DIR=/opt/oracle/instantclient_11_2 \
     ORACLE_THICK_MODE=true \
-    LD_LIBRARY_PATH=/opt/oracle/instantclient_11_2:$LD_LIBRARY_PATH
+    LD_LIBRARY_PATH=/opt/oracle/instantclient_11_2
 
 RUN set -eux; \
     if [ -n "${APT_MIRROR}" ]; then \
