@@ -624,7 +624,7 @@ function openAdd() {
     S.dMode='add-contact'; S.form={status:'active',phones:[]};
     renderContactForm('新增联系人');
   } else if (S.curPage==='customtask') {
-    S.dMode='add-task'; S.form={enabled:true};
+    S.dMode='add-task'; S.form={enabled:true,interval_value:1,interval_unit:'hour'};
     renderTaskForm('新增任务');
   } else if (S.curPage==='topic') {
     S.dMode='add-topic'; S.form={enabled:true,filter_expr:'{}'};
@@ -952,7 +952,7 @@ function viewTask(id) {
 }
 function editTask(id) {
   const r=_tasks.find(t=>t.id===id); if(!r) return;
-  S.dData=r; S.dMode='edit-task'; S.form={task_name:r.task_name,script_id:r.script_id,script_version_id:r.script_version_id,enabled:r.enabled,runtime_config:JSON.stringify(r.runtime_config||{},null,2)};
+  S.dData=r; S.dMode='edit-task'; S.form={task_name:r.task_name,script_id:r.script_id,script_version_id:r.script_version_id,enabled:r.enabled,runtime_config:JSON.stringify(r.runtime_config||{},null,2),interval_value:r.schedules?.[0]?.interval_value??1,interval_unit:r.schedules?.[0]?.interval_unit||'hour'};
   renderTaskForm('编辑任务');
 }
 function openUploadScript() {
@@ -1005,6 +1005,16 @@ function renderTaskForm(title) {
     <div class="form-field"><div class="field-label">脚本<span class="field-req">*</span></div><select class="field-select" onchange="onScriptChange(this.value)"><option value="">请选择脚本</option>${scriptOpts}</select></div>
     <div class="form-field"><div class="field-label">脚本版本<span class="field-req">*</span></div><select id="task_script_version_id" class="field-select" onchange="S.form.script_version_id=Number(this.value)"><option value="">请选择版本</option>${versionOpts}</select></div>
     <div class="form-field"><div class="field-label">状态</div><select class="field-select" onchange="S.form.enabled=this.value==='true'"><option value="true" ${f.enabled?'selected':''}>启用</option><option value="false" ${!f.enabled?'selected':''}>停用</option></select></div>
+    <div class="form-field"><div class="field-label">调度<span class="field-req">*</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="color:#86909c">每</span>
+        <input class="field-input" type="number" min="1" style="flex:1" value="${f.interval_value||1}" oninput="S.form.interval_value=+this.value">
+        <select class="field-select" style="flex:1" onchange="S.form.interval_unit=this.value">
+          <option value="minute" ${f.interval_unit==='minute'?'selected':''}>分钟</option>
+          <option value="hour" ${(f.interval_unit==='hour'||!f.interval_unit)?'selected':''}>小时</option>
+        </select>
+      </div>
+    </div>
     <div class="form-field"><div class="field-label">runtime_config (JSON)</div><textarea class="field-textarea" rows="6" oninput="S.form.runtime_config=this.value">${escapeHtml(f.runtime_config||'{}')}</textarea></div>
   `,true);
 }
@@ -1055,6 +1065,7 @@ async function doSave() {
         enabled: f.enabled,
         runtime_config: rc
       });
+      await PUT(`/api/tasks/${S.dData.id}/schedule`, {interval_value:+f.interval_value||1, interval_unit:f.interval_unit||'hour', enabled:true});
       toast('保存成功'); closeDrawer(); loadCustomtask();
     } else if (S.dMode==='add-task') {
       let rc; try{rc=JSON.parse(f.runtime_config);}catch(e){toast('runtime_config JSON格式错误','error');return;}
@@ -1065,7 +1076,8 @@ async function doSave() {
         script_id: f.script_id,
         script_version_id: f.script_version_id,
         enabled: f.enabled,
-        runtime_config: rc
+        runtime_config: rc,
+        schedule: {interval_value:+f.interval_value||1, interval_unit:f.interval_unit||'hour', enabled:true}
       });
       toast('创建成功'); closeDrawer(); loadCustomtask();
     } else if (S.dMode==='upload-script') {
