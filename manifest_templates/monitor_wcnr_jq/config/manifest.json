@@ -1,7 +1,0 @@
-{
-  "script_code": "monitor_wcnr_jq",
-  "script_name": "Juvenile Monitor Task",
-  "script_type": "python_zip",
-  "entry_file": "monitor_wcnr_jq.py",
-  "entry_func": "run"
-}

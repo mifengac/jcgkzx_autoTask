@@ -12,11 +12,11 @@ export IMAGE_NAME="jcgkzx-autotask:latest"
 # 自动检测是否需要使用 sudo 执行 docker 命令并注入 IMAGE_NAME
 if docker ps >/dev/null 2>&1; then
     DOCKER_CMD="docker"
-    DOCKER_COMPOSE_CMD="IMAGE_NAME=jcgkzx-autotask:latest docker compose"
+    DOCKER_COMPOSE_CMD="docker compose"
     echo "检测到当前用户具有 Docker 执行权限，将直接运行命令。"
 else
     DOCKER_CMD="sudo docker"
-    DOCKER_COMPOSE_CMD="sudo IMAGE_NAME=jcgkzx-autotask:latest docker compose"
+    DOCKER_COMPOSE_CMD="sudo env IMAGE_NAME=jcgkzx-autotask:latest docker compose"
     echo "检测到当前用户需要提升权限，将使用 sudo 运行命令并注入环境变量。"
 fi
 

@@ -1,0 +1,7 @@
+{
+  "script_code": "xunfang_dutyschedule_sync",
+  "script_name": "巡防排班增量同步",
+  "script_type": "python_zip",
+  "entry_file": "xunfang_dutyschedule_sync.py",
+  "entry_func": "run"
+}

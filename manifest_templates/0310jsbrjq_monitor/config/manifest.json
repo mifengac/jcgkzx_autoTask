@@ -1,7 +1,0 @@
-{
-  "script_code": "0310jsbrjq_monitor",
-  "script_name": "精神病警情测试监测",
-  "script_type": "python_zip",
-  "entry_file": "0310jsbrjq_monitor.py",
-  "entry_func": "run"
-}

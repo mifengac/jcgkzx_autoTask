@@ -32,7 +32,7 @@ WHERE status = 'running';
 为了在开启实时自动增量任务前，安全、稳定地消化源表积累的 200 多万条历史数据，建议在内网先手动按年份依次执行回溯。
 
 ### 脚本位置与原理
-* **脚本文件**：`dist_scripts/jq_number_extract_yearly.py`
+* **脚本文件**：`manual/scripts/jq_number_extract_yearly.py`
 * **内存安全原理**：该脚本内置了 **Server-side Cursor (服务端流式游标)** 机制，一次仅预取并处理少量数据（由 `--batch-size` 控制，默认 500 条），在处理千万级数据时**内存占用固定在几百KB，绝不 OOM**。
 
 ### 内网执行命令模板
@@ -40,7 +40,7 @@ WHERE status = 'running';
 
 ```bash
 # 提取 2024 年的数据
-python3 dist_scripts/jq_number_extract_yearly.py \
+python3 manual/scripts/jq_number_extract_yearly.py \
   --year 2024 \
   --src-url "host=127.0.0.1 port=54321 dbname=ywdata user=postgres password=xxxx" \
   --dst-url "host=127.0.0.1 port=54321 dbname=jcgkzx_monitor user=postgres password=xxxx" \
@@ -49,7 +49,7 @@ python3 dist_scripts/jq_number_extract_yearly.py \
   --batch-size 1000
 
 # 提取 2025 年的数据
-python3 dist_scripts/jq_number_extract_yearly.py \
+python3 manual/scripts/jq_number_extract_yearly.py \
   --year 2025 \
   --src-url "host=127.0.0.1 port=54321 dbname=ywdata user=postgres password=xxxx" \
   --dst-url "host=127.0.0.1 port=54321 dbname=jcgkzx_monitor user=postgres password=xxxx" \
@@ -85,7 +85,7 @@ psql -h 127.0.0.1 -p 54321 -U postgres -d platformdb -f migrations/0623_update_z
 
 在手动回溯完成历史年份数据，并重新在平台控制台开启定时自定义任务后，平台执行器将调用升级后的版本。
 
-* **升级脚本路径**：`dist_scripts/jq_number_extract.py`
+* **升级脚本路径**：`auto/scripts/jq_number_extract.py`
 * **变更点**：
   * `_fetch_src` 增量数据拉取语句已扩充字段，保持和扩展后的 DDL 一致。
   * `_build_rows` 写入元组重构，完美对齐新目标表的列顺序。
