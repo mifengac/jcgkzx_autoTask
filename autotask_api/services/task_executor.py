@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -17,6 +18,7 @@ from autotask_api.models import (
 )
 from autotask_api.schemas import TaskRunRequest
 from autotask_api.config import get_settings
+from autotask_api.services.oracle_eid import fit_oracle_eid
 from autotask_api.services.rule_engine import (
     dump_json_text,
     parse_json_text,
@@ -27,6 +29,8 @@ from autotask_api.services.script_runner import execute_script
 from autotask_api.services.sms_gateway_client import SmsGatewayClient
 from autotask_api.services.task_fields import normalize_non_null_text_input
 from autotask_api.services.time_utils import now_shanghai
+
+logger = logging.getLogger(__name__)
 
 
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
@@ -46,12 +50,17 @@ def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
     return task
 
 
-def build_event_key(row: dict[str, Any], index: int) -> str:
+def build_event_key(row: dict[str, Any], index: int, *, prefix: str = "task") -> str:
+    raw = ""
     for key in ("event_id", "event_key", "case_no", "caseNo", "systemid", "id"):
         value = row.get(key)
         if value not in (None, ""):
-            return str(value).strip()
-    return f"row_{index}"
+            raw = str(value).strip()
+            break
+    if not raw:
+        raw = f"row_{index}"
+    # Same EID is used for gateway dedup; keep ≤50 bytes unchanged.
+    return fit_oracle_eid(raw, prefix=prefix)
 
 
 def build_message(task: AlertTask, row: dict[str, Any]) -> str:
@@ -156,9 +165,12 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         rows = execute_script(script=task.script, version=task.script_version, context=context)
         sent_count = 0
         hit_count = 0
+        failed_count = 0
+        first_send_error: str | None = None
+        script_code = task.script.script_code if task.script else "task"
 
         for index, row in enumerate(rows, start=1):
-            event_key = build_event_key(row, index)
+            event_key = build_event_key(row, index, prefix=script_code)
             rendered_message = build_message(task, row)
             matched_rule_ids: list[int] = []
             aggregated_mobiles: list[str] = []
@@ -239,6 +251,9 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                         sent_count += 1
                     elif outcome.status == "failed":
                         failed_for_row = True
+                        failed_count += 1
+                        if first_send_error is None:
+                            first_send_error = outcome.error_message or "SMS send failed"
                     record_sms_log(
                         db,
                         run_id=run.id,
@@ -251,6 +266,9 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                     )
                 except HTTPException as exc:
                     failed_for_row = True
+                    failed_count += 1
+                    if first_send_error is None:
+                        first_send_error = str(exc.detail)
                     record_sms_log(
                         db,
                         run_id=run.id,
@@ -279,7 +297,16 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         run.send_count = sent_count
         run.status = "completed" if not payload.dry_run else "completed_dry_run"
         run.finished_at = now_shanghai()
-        run.error_message = normalize_non_null_text_input("")
+        if hit_count > 0 and sent_count == 0 and failed_count > 0:
+            summary = (
+                f"all SMS sends failed for task={task.task_name!r} "
+                f"(hit={hit_count}, failed={failed_count}): "
+                f"{first_send_error or 'unknown error'}"
+            )
+            logger.error(summary)
+            run.error_message = normalize_non_null_text_input(summary)
+        else:
+            run.error_message = normalize_non_null_text_input("")
         db.add(run)
         db.commit()
         db.refresh(run)

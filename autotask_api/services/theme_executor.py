@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -18,6 +19,7 @@ from autotask_api.models import (
     ThemeTopicResult,
 )
 from autotask_api.schemas import ThemeSourceRunRequest
+from autotask_api.services.oracle_eid import fit_oracle_eid
 from autotask_api.services.rule_engine import (
     dump_json_text,
     parse_json_text,
@@ -32,6 +34,8 @@ from autotask_api.services.task_fields import (
 from autotask_api.services.theme_adapters import get_theme_source_adapter
 from autotask_api.services.theme_filter_engine import derive_hit_keyword, matches_filter_expr
 from autotask_api.services.time_utils import now_shanghai, to_shanghai_naive
+
+logger = logging.getLogger(__name__)
 
 
 def load_theme_source_for_execution(db: Session, source_id: int) -> ThemeSource:
@@ -136,7 +140,8 @@ def build_theme_dedup_key(topic: ThemeTopic, row: dict[str, Any]) -> str:
 
 
 def build_theme_oracle_eid(topic: ThemeTopic, dedup_key: str) -> str:
-    return f"{topic.theme_code}:{dedup_key}"
+    raw = f"{topic.theme_code}:{dedup_key}"
+    return fit_oracle_eid(raw, prefix=topic.theme_code)
 
 
 def theme_dedup_since(topic: ThemeTopic, current_time: datetime) -> datetime | None:
@@ -219,6 +224,8 @@ def execute_theme_source_run(
 
         matched_count = 0
         sent_count = 0
+        failed_count = 0
+        first_send_error: str | None = None
 
         for row in rows:
             for topic in source.topics:
@@ -318,6 +325,9 @@ def execute_theme_source_run(
                             sent_count += 1
                         elif outcome.status == "failed":
                             failed_for_result = True
+                            failed_count += 1
+                            if first_send_error is None:
+                                first_send_error = outcome.error_message or "SMS send failed"
                         record_theme_sms_log(
                             db,
                             source_run_id=run.id,
@@ -331,6 +341,9 @@ def execute_theme_source_run(
                         )
                     except HTTPException as exc:
                         failed_for_result = True
+                        failed_count += 1
+                        if first_send_error is None:
+                            first_send_error = str(exc.detail)
                         record_theme_sms_log(
                             db,
                             source_run_id=run.id,
@@ -360,7 +373,18 @@ def execute_theme_source_run(
         run.send_count = sent_count
         run.status = "completed" if not payload.dry_run else "completed_dry_run"
         run.finished_at = now_shanghai()
-        run.error_message = normalize_non_null_text_input("")
+        # Do not invent new run.status values (frontend depends on the existing set).
+        # Surface total SMS failure so operators can tell it from "no hits".
+        if matched_count > 0 and sent_count == 0 and failed_count > 0:
+            summary = (
+                f"all SMS sends failed for source={source.source_name!r} "
+                f"(matched={matched_count}, failed={failed_count}): "
+                f"{first_send_error or 'unknown error'}"
+            )
+            logger.error(summary)
+            run.error_message = normalize_non_null_text_input(summary)
+        else:
+            run.error_message = normalize_non_null_text_input("")
         db.add(run)
         db.commit()
         db.refresh(run)
