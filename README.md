@@ -129,9 +129,18 @@ docker compose down
 - **部署顺序：先升级并启动 `oracle-sms-gateway`，再部署本服务。** 业务侧发的是 `dedup_minutes`；若网关仍是旧版会忽略该字段并退回默认 `DEDUP_HOURS_DEFAULT`（通常 12 小时），**不会报错但会错误放大去重窗口**。
 - 本服务与网关必须配置**同一个非空 token**（`SMS_GATEWAY_TOKEN` = 网关 `API_TOKEN`）。网关在 token 为空时会放行请求，本客户端 fail-closed 要求 token——两边都要填。
 - 短信发送依赖网关可用；不可达或 5xx 时单条记失败（日志语义区分 4xx 数据问题与 5xx/连接问题），任务/主题运行本身不会因此整体崩溃。连接类错误默认最多再重试 2 次。
+- **`sent` 语义**：平台侧日志的 `sent`（以及网关返回的 `inserted`）只表示**已成功写入** Oracle 短信队列表 `yfgadb.dfsdl`，**不代表用户已收到短信**。实际投递由下游短信平台消费该表完成，本服务与网关都无法感知投递结果。
 - 网关会校验手机号 `^1[3-9]\d{9}$`、正文 ≤4000 **字节**、EID ≤50 **字节**，不合规返回 400 并记 `failed`。2026-07-25 生产核查：`org_contact_phone` 中不合规手机号 **0 条**。
 - 旧的 `SMS_USERID` / `SMS_PASSWORD` / `SMS_USERPORT` / `SMS_BUSINESS_PORTS_JSON` 仍可出现在 `.env` 中以免加载失败，但**平台发短信已不再使用**；凭证与 `userport` 在网关侧配置。`ORACLE_*` 客户端配置已移除。
 - **从旧版本升级**：宿主机上遗留的 `instantclient_11_2/` 目录可以删除；内网服务器 `.env` 中的 `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` / `ORACLE_THICK_MODE` / `ORACLE_CLIENT_LIB_DIR` 五项请一并清理。
+- **排查「平台显示 sent 但用户没收到」**：先确认本平台与网关日志正常，再查 Oracle 队列是否被下游消费。本平台写入时固定 `STATUS = 0`；若近期行大量仍停在 `0`，说明下游停止消费，问题不在本平台：
+
+```sql
+SELECT status, count(*), min(deadtime), max(deadtime)
+  FROM yfgadb.dfsdl
+ WHERE deadtime >= sysdate - 3
+ GROUP BY status;
+```
 
 ## 数据源配置示例
 

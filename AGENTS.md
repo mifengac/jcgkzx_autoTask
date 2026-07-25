@@ -18,6 +18,7 @@ Primary stack:
 - Backend: FastAPI, SQLAlchemy, APScheduler, Pydantic Settings
 - Frontend: static HTML/CSS/JavaScript served directly by FastAPI
 - Runtime integrations: Kingbase or PostgreSQL-compatible database; SMS via internal HTTP gateway `oracle-sms-gateway` (host port 5011). This service does **not** ship or require Oracle Instant Client.
+- SMS log status `sent` means the row was successfully enqueued into Oracle table `yfgadb.dfsdl` via the gateway (`inserted`). It does **not** mean the end user received the message; downstream SMS platforms consume that table and delivery is outside this service.
 - Deployment target: Docker on company-internal Ubuntu 22.04 hosts with no internet access
 - Deploy order: **upgrade and start `oracle-sms-gateway` before this service** (this client sends `dedup_minutes`; old gateways ignore it and fall back to a multi-hour default). If the gateway is down, SMS sends fail with 502 and are logged, but task/theme runs still complete. Both sides need the same non-empty API token.
 

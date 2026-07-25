@@ -34,8 +34,14 @@ def fit_oracle_eid(raw_eid: str, *, prefix: str) -> str:
 
     - If raw_eid already fits, return it unchanged (including every character).
     - Otherwise: ``{prefix_truncated_to_17_bytes}:{sha1(raw_eid)[:32]}``
-      (17 + 1 + 32 = 50). Hash input is the full raw_eid so uniqueness holds
-      even when prefixes collide after truncation.
+      (17 + 1 + 32 = 50 when the prefix uses the full 17-byte budget).
+
+    Uniqueness of the hashed form is determined only by ``raw_eid`` (the SHA-1
+    input). ``prefix`` is for readability after truncation and is **not** part
+    of the hash. Cross-prefix uniqueness after truncation holds only when the
+    caller also embeds that prefix inside ``raw_eid`` (e.g. theme path
+    ``f"{theme_code}:{dedup_key}"``). The task path passes a bare event key as
+    ``raw_eid`` and uses ``script_code`` purely as a display prefix.
     """
     raw = str(raw_eid or "")
     if _byte_len(raw) <= MAX_ORACLE_EID_BYTES:
