@@ -22,7 +22,6 @@
 jcgkzx_autoTask/
 ├── autotask_api/          # FastAPI 后端、调度器、执行器、适配器
 ├── frontend/              # 静态前端控制台
-├── instantclient_11_2/    # Oracle Instant Client 11g
 ├── manifest_templates/    # 脚本上传示例清单
 ├── tests/                 # Python 单元测试
 ├── Dockerfile
@@ -54,8 +53,8 @@ jcgkzx_autoTask/
 
 - Python 3.11
 - Kingbase / PostgreSQL 兼容数据库
-- 内网已部署 `oracle-sms-gateway`（宿主端口 5011）；本服务只发 HTTP，不直连 Oracle 发短信
-- 镜像内仍保留 `instantclient_11_2/`，供用户上传脚本等可能的 Oracle 访问使用
+- 内网已部署 `oracle-sms-gateway`（宿主端口 5011）；本服务只发 HTTP，不直连 Oracle
+- 本服务不再需要 Oracle 客户端；Oracle 11g 访问已收敛到 `oracle-sms-gateway`
 
 ### 启动步骤
 
@@ -130,8 +129,9 @@ docker compose down
 - **部署顺序：先升级并启动 `oracle-sms-gateway`，再部署本服务。** 业务侧发的是 `dedup_minutes`；若网关仍是旧版会忽略该字段并退回默认 `DEDUP_HOURS_DEFAULT`（通常 12 小时），**不会报错但会错误放大去重窗口**。
 - 本服务与网关必须配置**同一个非空 token**（`SMS_GATEWAY_TOKEN` = 网关 `API_TOKEN`）。网关在 token 为空时会放行请求，本客户端 fail-closed 要求 token——两边都要填。
 - 短信发送依赖网关可用；不可达或 5xx 时单条记失败（日志语义区分 4xx 数据问题与 5xx/连接问题），任务/主题运行本身不会因此整体崩溃。连接类错误默认最多再重试 2 次。
-- 网关会校验手机号 `^1[3-9]\d{9}$` 与正文 ≤4000 字，不合规返回 400 并记 `failed`；原先直插 Oracle 不做这些校验。上线前请检查联系人手机号是否合规。
-- 旧的 `ORACLE_*` / `SMS_USERID` / `SMS_PASSWORD` / `SMS_USERPORT` 配置项仍可出现在 `.env` 中以免加载失败，但**平台发短信已不再使用**；凭证与 `userport` 在网关侧配置。
+- 网关会校验手机号 `^1[3-9]\d{9}$`、正文 ≤4000 **字节**、EID ≤50 **字节**，不合规返回 400 并记 `failed`。2026-07-25 生产核查：`org_contact_phone` 中不合规手机号 **0 条**。
+- 旧的 `SMS_USERID` / `SMS_PASSWORD` / `SMS_USERPORT` / `SMS_BUSINESS_PORTS_JSON` 仍可出现在 `.env` 中以免加载失败，但**平台发短信已不再使用**；凭证与 `userport` 在网关侧配置。`ORACLE_*` 客户端配置已移除。
+- **从旧版本升级**：宿主机上遗留的 `instantclient_11_2/` 目录可以删除；内网服务器 `.env` 中的 `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` / `ORACLE_THICK_MODE` / `ORACLE_CLIENT_LIB_DIR` 五项请一并清理。
 
 ## 数据源配置示例
 

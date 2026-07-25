@@ -27,14 +27,6 @@ class Settings(BaseSettings):
     script_upload_dirname: str = "scripts"
     extract_root_dirname: str = "extracted"
 
-    # Deprecated for platform SMS send: kept so existing .env keys still load.
-    # User-uploaded scripts / other examples may still read Oracle env vars.
-    oracle_dsn: str | None = Field(default=None, alias="ORACLE_DSN")
-    oracle_user: str | None = Field(default=None, alias="ORACLE_USER")
-    oracle_password: str | None = Field(default=None, alias="ORACLE_PASSWORD")
-    oracle_client_lib_dir: str | None = Field(default=None, alias="ORACLE_CLIENT_LIB_DIR")
-    oracle_thick_mode: bool = Field(default=True, alias="ORACLE_THICK_MODE")
-
     # Deprecated for platform SMS send: credentials live on oracle-sms-gateway.
     sms_userid: str | None = Field(default=None, alias="SMS_USERID")
     sms_password: str | None = Field(default=None, alias="SMS_PASSWORD")

@@ -1,6 +1,5 @@
 requests>=2.25.1
 psycopg2-binary>=2.8.6
-oracledb>=2.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 sqlalchemy>=2.0.36

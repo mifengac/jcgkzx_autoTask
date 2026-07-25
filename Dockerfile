@@ -30,10 +30,7 @@ ARG APT_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian-security
 ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Shanghai \
-    PATH=/app/.venv/bin:$PATH \
-    ORACLE_CLIENT_LIB_DIR=/opt/oracle/instantclient_11_2 \
-    ORACLE_THICK_MODE=true \
-    LD_LIBRARY_PATH=/opt/oracle/instantclient_11_2
+    PATH=/app/.venv/bin:$PATH
 
 RUN set -eux; \
     if [ -n "${APT_MIRROR}" ]; then \
@@ -45,16 +42,7 @@ RUN set -eux; \
       fi; \
     fi; \
     apt-get update; \
-    if ! apt-get install -y --no-install-recommends libaio1; then \
-      apt-get install -y --no-install-recommends libaio1t64; \
-    fi; \
-    apt-get install -y --no-install-recommends libnsl2 tzdata; \
-    if [ ! -e /usr/lib/x86_64-linux-gnu/libaio.so.1 ] && [ -e /usr/lib/x86_64-linux-gnu/libaio.so.1t64 ]; then \
-      ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1; \
-    fi; \
-    if [ ! -e /lib/x86_64-linux-gnu/libaio.so.1 ] && [ -e /lib/x86_64-linux-gnu/libaio.so.1t64 ]; then \
-      ln -s /lib/x86_64-linux-gnu/libaio.so.1t64 /lib/x86_64-linux-gnu/libaio.so.1; \
-    fi; \
+    apt-get install -y --no-install-recommends tzdata; \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -62,12 +50,8 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY autotask_api /app/autotask_api
 COPY frontend /app/frontend
-COPY instantclient_11_2 /opt/oracle/instantclient_11_2
 
-RUN set -eux; \
-    ln -sf /opt/oracle/instantclient_11_2/libclntsh.so.11.1 /opt/oracle/instantclient_11_2/libclntsh.so; \
-    ln -sf /opt/oracle/instantclient_11_2/libocci.so.11.1 /opt/oracle/instantclient_11_2/libocci.so; \
-    mkdir -p /app/uploads/scripts /app/uploads/extracted
+RUN mkdir -p /app/uploads/scripts /app/uploads/extracted
 
 EXPOSE 8000
 

@@ -17,7 +17,7 @@ Primary stack:
 
 - Backend: FastAPI, SQLAlchemy, APScheduler, Pydantic Settings
 - Frontend: static HTML/CSS/JavaScript served directly by FastAPI
-- Runtime integrations: Kingbase or PostgreSQL-compatible database; SMS via internal HTTP gateway `oracle-sms-gateway` (host port 5011)
+- Runtime integrations: Kingbase or PostgreSQL-compatible database; SMS via internal HTTP gateway `oracle-sms-gateway` (host port 5011). This service does **not** ship or require Oracle Instant Client.
 - Deployment target: Docker on company-internal Ubuntu 22.04 hosts with no internet access
 - Deploy order: **upgrade and start `oracle-sms-gateway` before this service** (this client sends `dedup_minutes`; old gateways ignore it and fall back to a multi-hour default). If the gateway is down, SMS sends fail with 502 and are logged, but task/theme runs still complete. Both sides need the same non-empty API token.
 
@@ -70,7 +70,7 @@ Use Python 3.11 locally when possible. The README and `.env.example` assume that
 - Follow the existing test pattern when database-backed modules are imported: set `os.environ.setdefault("DATABASE_URL", "sqlite://")` before importing app code.
 - Prefer focused tests using in-memory SQLite.
 - If a test needs the configured schema name, mirror the current approach in `tests/test_theme_run_api.py` and attach an in-memory schema named `jcgkzx_autotask`.
-- Do not require live Kingbase, Oracle, or SMS services for automated tests.
+- Do not require live Kingbase, Oracle Instant Client, or SMS services for automated tests.
 - After every code change, perform a functional verification of the changed logic. Use the closest realistic validation path available, such as a focused automated test, a syntax check, a dry run, a targeted API call, or a UI interaction check.
 
 ## Change Guidelines
