@@ -16,7 +16,7 @@ from autotask_api.models import (
     TaskRunResult,
 )
 from autotask_api.schemas import TaskRunRequest
-from autotask_api.services.oracle_sms import OracleSmsGateway
+from autotask_api.config import get_settings
 from autotask_api.services.rule_engine import (
     dump_json_text,
     parse_json_text,
@@ -24,8 +24,12 @@ from autotask_api.services.rule_engine import (
     resolve_rule_mobiles,
 )
 from autotask_api.services.script_runner import execute_script
+from autotask_api.services.sms_gateway_client import SmsGatewayClient
 from autotask_api.services.task_fields import normalize_non_null_text_input
 from autotask_api.services.time_utils import now_shanghai
+
+
+settings = get_settings()
 
 
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
@@ -137,8 +141,8 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
         runtime_config = {**runtime_config, **payload.context_override}
         context["runtime_config"] = runtime_config
 
-    gateway: OracleSmsGateway | None = None
-    provider_name = OracleSmsGateway.provider_name
+    gateway: SmsGatewayClient | None = None
+    provider_name = SmsGatewayClient.provider_name
     disable_sms = str(runtime_config.get("disable_sms", "")).strip().lower() in {
         "1",
         "true",
@@ -216,33 +220,25 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                 continue
 
             if gateway is None:
-                gateway = OracleSmsGateway()
-            credentials = gateway.resolve_credentials(runtime_config)
+                gateway = SmsGatewayClient()
+            biz = gateway.resolve_biz(runtime_config)
             sent_for_row = 0
             failed_for_row = False
 
             for mobile in aggregated_mobiles:
                 try:
-                    if gateway.check_duplicate(eid=event_key, mobile=mobile):
-                        record_sms_log(
-                            db,
-                            run_id=run.id,
-                            result_id=result.id,
-                            mobile=mobile,
-                            content=rendered_message,
-                            provider=provider_name,
-                            status_text="skipped_duplicate",
-                        )
-                        continue
-
-                    gateway.enqueue_sms(
+                    outcome = gateway.send_one(
                         mobile=mobile,
                         content=rendered_message,
                         eid=event_key,
-                        credentials=credentials,
+                        biz=biz,
+                        dedup_minutes=settings.sms_gateway_permanent_dedup_hours * 60,
                     )
-                    sent_for_row += 1
-                    sent_count += 1
+                    if outcome.status == "sent":
+                        sent_for_row += 1
+                        sent_count += 1
+                    elif outcome.status == "failed":
+                        failed_for_row = True
                     record_sms_log(
                         db,
                         run_id=run.id,
@@ -250,7 +246,8 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                         mobile=mobile,
                         content=rendered_message,
                         provider=provider_name,
-                        status_text="sent",
+                        status_text=outcome.status,
+                        error_message=outcome.error_message or "",
                     )
                 except HTTPException as exc:
                     failed_for_row = True
@@ -269,8 +266,11 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                 result.send_status = "sent"
             elif sent_for_row and failed_for_row:
                 result.send_status = "partial_failed"
-            else:
+            elif failed_for_row:
                 result.send_status = "failed"
+            else:
+                # All mobiles were skipped_duplicate (or empty after filtering).
+                result.send_status = "skipped_duplicate"
             db.add(result)
             db.commit()
 

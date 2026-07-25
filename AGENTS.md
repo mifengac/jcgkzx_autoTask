@@ -17,14 +17,15 @@ Primary stack:
 
 - Backend: FastAPI, SQLAlchemy, APScheduler, Pydantic Settings
 - Frontend: static HTML/CSS/JavaScript served directly by FastAPI
-- Runtime integrations: Kingbase or PostgreSQL-compatible database, Oracle 11g client, Oracle-backed SMS queue
+- Runtime integrations: Kingbase or PostgreSQL-compatible database; SMS via internal HTTP gateway `oracle-sms-gateway` (host port 5011)
 - Deployment target: Docker on company-internal Ubuntu 22.04 hosts with no internet access
+- Deploy order: **upgrade and start `oracle-sms-gateway` before this service** (this client sends `dedup_minutes`; old gateways ignore it and fall back to a multi-hour default). If the gateway is down, SMS sends fail with 502 and are logged, but task/theme runs still complete. Both sides need the same non-empty API token.
 
 ## Repository Map
 
 - `autotask_api/main.py`: FastAPI entrypoint, startup and shutdown hooks, static asset mount
 - `autotask_api/api/`: HTTP routers and response shaping
-- `autotask_api/services/`: scheduler, task execution, theme execution, adapters, Oracle/SMS integration
+- `autotask_api/services/`: scheduler, task execution, theme execution, adapters, SMS gateway HTTP client
 - `autotask_api/models.py`: SQLAlchemy models
 - `autotask_api/schemas.py`: request and response schemas
 - `autotask_api/api/contacts.py`: contact management API for SMS recipient configuration

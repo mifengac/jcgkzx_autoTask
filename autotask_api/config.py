@@ -27,18 +27,41 @@ class Settings(BaseSettings):
     script_upload_dirname: str = "scripts"
     extract_root_dirname: str = "extracted"
 
+    # Deprecated for platform SMS send: kept so existing .env keys still load.
+    # User-uploaded scripts / other examples may still read Oracle env vars.
     oracle_dsn: str | None = Field(default=None, alias="ORACLE_DSN")
     oracle_user: str | None = Field(default=None, alias="ORACLE_USER")
     oracle_password: str | None = Field(default=None, alias="ORACLE_PASSWORD")
     oracle_client_lib_dir: str | None = Field(default=None, alias="ORACLE_CLIENT_LIB_DIR")
     oracle_thick_mode: bool = Field(default=True, alias="ORACLE_THICK_MODE")
 
+    # Deprecated for platform SMS send: credentials live on oracle-sms-gateway.
     sms_userid: str | None = Field(default=None, alias="SMS_USERID")
     sms_password: str | None = Field(default=None, alias="SMS_PASSWORD")
     sms_userport: str | None = Field(default=None, alias="SMS_USERPORT")
     sms_business_ports_json: str = Field(
         default='{"治安基础管控中心":"0006"}',
         alias="SMS_BUSINESS_PORTS_JSON",
+    )
+
+    # HTTP SMS gateway (oracle-sms-gateway)
+    sms_gateway_base_url: str = Field(
+        default="http://127.0.0.1:5011",
+        alias="SMS_GATEWAY_BASE_URL",
+    )
+    sms_gateway_token: str | None = Field(default=None, alias="SMS_GATEWAY_TOKEN")
+    sms_gateway_biz: str = Field(default="yfjcgkzx", alias="SMS_GATEWAY_BIZ")
+    sms_gateway_timeout_seconds: float = Field(
+        default=10.0,
+        alias="SMS_GATEWAY_TIMEOUT_SECONDS",
+    )
+    # Extra attempts after the first try on ConnectionError/Timeout/5xx (not 4xx).
+    sms_gateway_max_retries: int = Field(default=2, alias="SMS_GATEWAY_MAX_RETRIES")
+    # Approximation of former permanent dedup (no since window) via a large hour window.
+    # Sent to the gateway as minutes: permanent_dedup_hours * 60.
+    sms_gateway_permanent_dedup_hours: int = Field(
+        default=87600,
+        alias="SMS_GATEWAY_PERMANENT_DEDUP_HOURS",
     )
 
     model_config = SettingsConfigDict(

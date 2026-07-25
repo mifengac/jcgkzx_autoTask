@@ -5,7 +5,7 @@
 - 主题监测：一个数据源抓取一次，多主题复用同一批数据，再按主题过滤、接收规则和短信模板分发。
 - 自定义脚本任务：继续沿用脚本 ZIP 上传、`run(context)` 执行、模板渲染和接收规则匹配的旧模式。
 
-前端是静态控制台，后端是 FastAPI。容器化后可作为单服务部署，运行时依赖外部 Kingbase / Oracle 网络连通。
+前端是静态控制台，后端是 FastAPI。容器化后可作为单服务部署，运行时依赖外部 Kingbase 与内网短信网关 `oracle-sms-gateway`（默认宿主端口 5011）。
 
 ## 核心能力
 
@@ -13,7 +13,7 @@
 - 管理脚本 ZIP、脚本版本、自定义任务、短信模板和接收规则
 - 按分钟 / 小时统一调度
 - 基于联系人主数据做手机号匹配
-- 通过 Oracle 11g 短信队列表写入短信发送请求
+- 通过内网 `oracle-sms-gateway` HTTP 接口发送短信（不再直连 Oracle 短信队列表）
 - 保留运行结果、命中规则、短信发送日志，便于排障和审计
 
 ## 当前目录
@@ -54,7 +54,8 @@ jcgkzx_autoTask/
 
 - Python 3.11
 - Kingbase / PostgreSQL 兼容数据库
-- Oracle 11g 客户端文件已放在 `instantclient_11_2/`
+- 内网已部署 `oracle-sms-gateway`（宿主端口 5011）；本服务只发 HTTP，不直连 Oracle 发短信
+- 镜像内仍保留 `instantclient_11_2/`，供用户上传脚本等可能的 Oracle 访问使用
 
 ### 启动步骤
 
@@ -118,15 +119,19 @@ docker compose down
 - 应用：`APP_NAME`、`APP_PORT`、`TZ`
 - Kingbase / PostgreSQL 兼容平台库：`DATABASE_URL`
 - 建表开关：`AUTO_CREATE_TABLES`
-- Oracle：`ORACLE_DSN`、`ORACLE_USER`、`ORACLE_PASSWORD`
-- 短信账号：`SMS_USERID`、`SMS_PASSWORD`、`SMS_USERPORT`
+- 短信网关：`SMS_GATEWAY_BASE_URL`、`SMS_GATEWAY_TOKEN`、`SMS_GATEWAY_BIZ`、`SMS_GATEWAY_TIMEOUT_SECONDS`、`SMS_GATEWAY_MAX_RETRIES`、`SMS_GATEWAY_PERMANENT_DEDUP_HOURS`
 - 数据源 / 内置监测脚本默认凭证：`LOGIN_USERNAME`、`LOGIN_PASSWORD`
 
 说明：
 
 - `DATABASE_URL` 是平台数据库连接串；`kingbase_multi_sql` 主题数据源默认优先使用 `THEME_DB_URL`，未配置时复用 `DATABASE_URL`。
 - 如果数据库中还没有平台表，可以在首次启动前把 `AUTO_CREATE_TABLES=true`，建表完成后改回 `false`。
-- 容器内访问宿主机数据库时，不要把主机地址写成 `127.0.0.1`。
+- 容器内访问宿主机数据库或网关时，不要把主机地址写成 `127.0.0.1`（可用 `host.docker.internal`）。
+- **部署顺序：先升级并启动 `oracle-sms-gateway`，再部署本服务。** 业务侧发的是 `dedup_minutes`；若网关仍是旧版会忽略该字段并退回默认 `DEDUP_HOURS_DEFAULT`（通常 12 小时），**不会报错但会错误放大去重窗口**。
+- 本服务与网关必须配置**同一个非空 token**（`SMS_GATEWAY_TOKEN` = 网关 `API_TOKEN`）。网关在 token 为空时会放行请求，本客户端 fail-closed 要求 token——两边都要填。
+- 短信发送依赖网关可用；不可达或 5xx 时单条记失败（日志语义区分 4xx 数据问题与 5xx/连接问题），任务/主题运行本身不会因此整体崩溃。连接类错误默认最多再重试 2 次。
+- 网关会校验手机号 `^1[3-9]\d{9}$` 与正文 ≤4000 字，不合规返回 400 并记 `failed`；原先直插 Oracle 不做这些校验。上线前请检查联系人手机号是否合规。
+- 旧的 `ORACLE_*` / `SMS_USERID` / `SMS_PASSWORD` / `SMS_USERPORT` 配置项仍可出现在 `.env` 中以免加载失败，但**平台发短信已不再使用**；凭证与 `userport` 在网关侧配置。
 
 ## 数据源配置示例
 

@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from autotask_api.config import get_settings
 from autotask_api.models import (
     MessageTemplate,
     ThemeSource,
@@ -17,13 +18,13 @@ from autotask_api.models import (
     ThemeTopicResult,
 )
 from autotask_api.schemas import ThemeSourceRunRequest
-from autotask_api.services.oracle_sms import OracleSmsGateway
 from autotask_api.services.rule_engine import (
     dump_json_text,
     parse_json_text,
     render_template,
     resolve_rule_mobiles,
 )
+from autotask_api.services.sms_gateway_client import SmsGatewayClient
 from autotask_api.services.task_fields import (
     normalize_non_null_text_input,
     normalize_non_null_text_output,
@@ -153,6 +154,27 @@ def theme_dedup_since(topic: ThemeTopic, current_time: datetime) -> datetime | N
     return to_shanghai_naive(since)
 
 
+def theme_dedup_minutes_from_since(
+    since: datetime | None,
+    current_time: datetime,
+    *,
+    permanent_hours: int | None = None,
+) -> int:
+    """Map theme dedup window to gateway dedup_minutes (exact minutes, no ceil-to-hour).
+
+    permanent_hours is optional for tests; when omitted, reads get_settings() so
+    cache_clear() in tests takes effect (do not rely on module-level settings here).
+    """
+    if permanent_hours is None:
+        permanent_hours = get_settings().sms_gateway_permanent_dedup_hours
+    if since is None:
+        return int(permanent_hours) * 60
+    current_naive = to_shanghai_naive(current_time)
+    since_naive = to_shanghai_naive(since)
+    minutes = round((current_naive - since_naive).total_seconds() / 60.0)
+    return max(1, int(minutes))
+
+
 def execute_theme_source_run(
     db: Session,
     source_id: int,
@@ -182,8 +204,8 @@ def execute_theme_source_run(
         "on",
     }
 
-    gateway: OracleSmsGateway | None = None
-    provider_name = OracleSmsGateway.provider_name
+    gateway: SmsGatewayClient | None = None
+    provider_name = SmsGatewayClient.provider_name
     current_time = now_shanghai()
 
     try:
@@ -275,35 +297,27 @@ def execute_theme_source_run(
                     continue
 
                 if gateway is None:
-                    gateway = OracleSmsGateway()
-                credentials = gateway.resolve_credentials(source_config)
+                    gateway = SmsGatewayClient()
+                biz = gateway.resolve_biz(source_config)
                 sent_for_result = 0
                 failed_for_result = False
                 since = theme_dedup_since(topic, current_time)
+                dedup_minutes = theme_dedup_minutes_from_since(since, current_time)
 
                 for mobile in aggregated_mobiles:
                     try:
-                        if gateway.check_duplicate(eid=oracle_eid, mobile=mobile, since=since):
-                            record_theme_sms_log(
-                                db,
-                                source_run_id=run.id,
-                                topic_result_id=result.id,
-                                topic_id=topic.id,
-                                mobile=mobile,
-                                content=rendered_message,
-                                provider=provider_name,
-                                status_text="skipped_duplicate",
-                            )
-                            continue
-
-                        gateway.enqueue_sms(
+                        outcome = gateway.send_one(
                             mobile=mobile,
                             content=rendered_message,
                             eid=oracle_eid,
-                            credentials=credentials,
+                            biz=biz,
+                            dedup_minutes=dedup_minutes,
                         )
-                        sent_for_result += 1
-                        sent_count += 1
+                        if outcome.status == "sent":
+                            sent_for_result += 1
+                            sent_count += 1
+                        elif outcome.status == "failed":
+                            failed_for_result = True
                         record_theme_sms_log(
                             db,
                             source_run_id=run.id,
@@ -312,7 +326,8 @@ def execute_theme_source_run(
                             mobile=mobile,
                             content=rendered_message,
                             provider=provider_name,
-                            status_text="sent",
+                            status_text=outcome.status,
+                            error_message=outcome.error_message or "",
                         )
                     except HTTPException as exc:
                         failed_for_result = True

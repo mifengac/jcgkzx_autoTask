@@ -6,13 +6,15 @@ Monitor script for juvenile case notifications.
 Behavior:
 1. Login and query case records from monitor API.
 2. Resolve recipient mobiles (Kingbase first, optional SMS_MOBILES fallback).
-3. Deduplicate by caseNo + mobile and send SMS through Oracle.
+3. Deduplicate by caseNo + mobile via gateway dedup_minutes and send SMS through
+   oracle-sms-gateway HTTP API.
 
 Key environment variables:
 - LOGIN_USERNAME / LOGIN_PASSWORD
 - MONITOR_LOGIN_URL / MONITOR_API_URL
-- ORACLE_DSN / ORACLE_USER / ORACLE_PASSWORD / ORACLE_CLIENT_LIB_DIR
-- SMS_USERID / SMS_PASSWORD / SMS_USERPORT
+- SMS_GATEWAY_BASE_URL / SMS_GATEWAY_TOKEN / SMS_GATEWAY_BIZ
+- SMS_GATEWAY_TIMEOUT_SECONDS / SMS_GATEWAY_MAX_RETRIES
+- SMS_GATEWAY_PERMANENT_DEDUP_HOURS (permanent-like window; sent as minutes)
 - KINGBASE_HOST / KINGBASE_PORT / KINGBASE_DBNAME / KINGBASE_USER / KINGBASE_PASSWORD
 - KG_TARGET_XQDM (default: 445300)
 - SMS_MOBILES (fallback only when Kingbase is unavailable)
@@ -137,17 +139,17 @@ class Config:
     monitor_login_url: str
     monitor_api_url: str
 
-    # Oracle配置
-    oracle_dsn: str
-    oracle_user: str
-    oracle_password: str
-    oracle_client_lib_dir: Optional[str] = None
+    # 短信网关（HTTP）
+    sms_gateway_base_url: str = "http://127.0.0.1:5011"
+    sms_gateway_token: str = ""
+    sms_gateway_biz: str = "yfjcgkzx"
+    sms_gateway_timeout_seconds: float = 10.0
+    sms_gateway_max_retries: int = 2
+    # 原 check_duplicate 为永久去重；由 PERMANENT_DEDUP_HOURS×60 得到分钟
+    sms_gateway_dedup_minutes: int = 87600 * 60
 
-    # 短信配置
+    # 短信接收号码（Kingbase 不可用时的兜底）
     sms_mobiles: List[str] = field(default_factory=list)
-    sms_userid: str = ""
-    sms_password: str = ""
-    sms_userport: str = ""
     kg_target_xqdm: str = "445300"
 
     # 人大金仓配置
@@ -269,19 +271,39 @@ def load_config_from_env() -> Config:
         os.environ.get("MONITOR_SECOND_QUERY_CASE_MARK_NO") or ""
     ).strip()
 
+    def _env_float(name: str, default: float) -> float:
+        raw = (os.environ.get(name) or "").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    def _env_int(name: str, default: int) -> int:
+        raw = (os.environ.get(name) or "").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
     return Config(
         login_username=os.environ.get("LOGIN_USERNAME", ""),
         login_password=os.environ.get("LOGIN_PASSWORD", ""),
         monitor_login_url=(os.environ.get("MONITOR_LOGIN_URL") or DEFAULT_LOGIN_URL).strip(),
         monitor_api_url=(os.environ.get("MONITOR_API_URL") or DEFAULT_API_URL).strip(),
-        oracle_dsn=os.environ.get("ORACLE_DSN", ""),
-        oracle_user=os.environ.get("ORACLE_USER", ""),
-        oracle_password=os.environ.get("ORACLE_PASSWORD", ""),
-        oracle_client_lib_dir=os.environ.get("ORACLE_CLIENT_LIB_DIR"),
+        sms_gateway_base_url=(
+            os.environ.get("SMS_GATEWAY_BASE_URL") or "http://127.0.0.1:5011"
+        ).strip().rstrip("/"),
+        sms_gateway_token=(os.environ.get("SMS_GATEWAY_TOKEN") or "").strip(),
+        sms_gateway_biz=(os.environ.get("SMS_GATEWAY_BIZ") or "yfjcgkzx").strip() or "yfjcgkzx",
+        sms_gateway_timeout_seconds=_env_float("SMS_GATEWAY_TIMEOUT_SECONDS", 10.0),
+        sms_gateway_max_retries=_env_int("SMS_GATEWAY_MAX_RETRIES", 2),
+        # 与平台一致：只读 PERMANENT 小时数，×60 为网关 dedup_minutes
+        sms_gateway_dedup_minutes=_env_int("SMS_GATEWAY_PERMANENT_DEDUP_HOURS", 87600) * 60,
         sms_mobiles=mobiles,
-        sms_userid=(os.environ.get("SMS_USERID") or "").strip(),
-        sms_password=(os.environ.get("SMS_PASSWORD") or "").strip(),
-        sms_userport=(os.environ.get("SMS_USERPORT") or "").strip(),
         kg_target_xqdm=(os.environ.get("KG_TARGET_XQDM") or "445300").strip() or "445300",
         kingbase_host=kingbase_host,
         kingbase_port=kingbase_port,
@@ -314,7 +336,6 @@ class WcnrJqMonitor:
         self.config = config
         self.logger = logger
         self.session = requests.Session()
-        self.use_thick_mode = False  # 标记是否使用 Thick 模式
 
         # 设置请求头
         self.session.headers.update({
@@ -323,29 +344,6 @@ class WcnrJqMonitor:
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
             "X-Requested-With": "XMLHttpRequest"
         })
-
-        # 初始化 Oracle 客户端
-        self.use_thick_mode = self._init_oracle_client()
-
-    def _init_oracle_client(self) -> bool:
-        """
-        初始化Oracle客户端
-        如果配置了客户端路径且初始化成功，使用Thick模式
-        否则使用Thin模式（纯Python，无需客户端）
-        返回: True表示使用Thick模式，False表示使用Thin模式
-        """
-        if self.config.oracle_client_lib_dir:
-            try:
-                import oracledb
-                oracledb.init_oracle_client(lib_dir=self.config.oracle_client_lib_dir)
-                self.logger.info(f"Oracle Instant Client已初始化(Thick模式): {self.config.oracle_client_lib_dir}")
-                return True
-            except Exception as e:
-                self.logger.warning(f"Oracle Instant Client初始化失败，将使用Thin模式: {e}")
-                return False
-        else:
-            self.logger.info("未配置Oracle Client路径，使用Thin模式(纯Python)")
-            return False
 
     def _retry_request(self, method: str, url: str, **kwargs) -> Optional[requests.Response]:
         """带重试机制的HTTP请求"""
@@ -673,58 +671,95 @@ class WcnrJqMonitor:
         content = f"{call_time},{duty_dept}接报:{case_contents}地址:{occur_address}【基础管控中心】"
         return content
 
-    def check_duplicate(self, conn, case_no: str, mobile: str) -> bool:
+    def send_sms_via_gateway(self, mobile: str, content: str, case_no: str) -> str:
         """
-        检查是否已发送过（去重）
-        查询yfgadb.dfsdl表中是否存在相同eid(caseNo)和mobile的记录
-        返回: True表示已存在（不发送），False表示不存在（可发送）
+        经 oracle-sms-gateway 发送单条短信（连接类失败退避重试）。
+        返回: "sent" | "skipped_duplicate" | "failed"
         """
-        try:
-            with conn.cursor() as cur:
-                sql = """
-                    SELECT COUNT(*)
-                    FROM yfgadb.dfsdl
-                    WHERE eid = :eid
-                    AND mobile = :mobile
-                """
-                cur.execute(sql, {
-                    "eid": case_no,
-                    "mobile": mobile
-                })
-                count = cur.fetchone()[0]
-                return count > 0
-        except Exception as e:
-            self.logger.error(f"去重检查失败: {e}")
-            return False  # 检查失败时允许发送
+        base_url = (self.config.sms_gateway_base_url or "").rstrip("/")
+        token = self.config.sms_gateway_token or ""
+        if not base_url or not token:
+            self.logger.error("短信网关未配置 SMS_GATEWAY_BASE_URL / SMS_GATEWAY_TOKEN")
+            return "failed"
 
-    def send_sms(self, conn, mobile: str, content: str, case_no: str) -> bool:
-        """
-        发送短信（插入Oracle表）
-        """
+        url = f"{base_url}/api/v1/sms/send"
+        timeout = float(self.config.sms_gateway_timeout_seconds or 10)
+        max_retries = max(0, int(self.config.sms_gateway_max_retries or 0))
+        payload = {
+            "biz": self.config.sms_gateway_biz or "yfjcgkzx",
+            "eid": case_no,
+            "mobiles": [mobile],
+            "content": content,
+            "dedup_minutes": int(self.config.sms_gateway_dedup_minutes or (87600 * 60)),
+        }
+        headers = {
+            "X-API-Key": token,
+            "Content-Type": "application/json",
+        }
+
+        response = None
+        attempts = max_retries + 1
+        for attempt in range(attempts):
+            try:
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers=headers,
+                    timeout=(timeout, timeout),
+                )
+            except requests.RequestException as exc:
+                self.logger.warning(
+                    "短信网关请求失败 (尝试 %d/%d): %s",
+                    attempt + 1,
+                    attempts,
+                    exc,
+                )
+                if attempt + 1 >= attempts:
+                    self.logger.error("短信网关请求最终失败: %s", exc)
+                    return "failed"
+                time.sleep(RETRY_DELAY * (attempt + 1))
+                continue
+
+            if 500 <= response.status_code < 600 and attempt + 1 < attempts:
+                self.logger.warning(
+                    "短信网关 HTTP %s，重试 (尝试 %d/%d)",
+                    response.status_code,
+                    attempt + 1,
+                    attempts,
+                )
+                time.sleep(RETRY_DELAY * (attempt + 1))
+                continue
+            break
+
+        if response is None:
+            return "failed"
+
+        if response.status_code < 200 or response.status_code >= 300:
+            self.logger.error("短信网关 HTTP %s", response.status_code)
+            return "failed"
+
         try:
-            with conn.cursor() as cur:
-                sql = """
-                    INSERT INTO yfgadb.dfsdl(
-                        id, mobile, content, deadtime, status, eid,
-                        userid, password, userport
-                    ) VALUES (
-                        yfgadb.seq_sendsms.nextval,
-                        :mobile, :content, SYSDATE, '0', :eid,
-                        :sms_userid, :sms_password, :sms_userport
-                    )
-                """
-                cur.execute(sql, {
-                    "mobile": mobile,
-                    "content": content,
-                    "eid": case_no,
-                    "sms_userid": self.config.sms_userid,
-                    "sms_password": self.config.sms_password,
-                    "sms_userport": self.config.sms_userport
-                })
-                return True
-        except Exception as e:
-            self.logger.error(f"短信发送失败: {e}")
-            return False
+            data = response.json()
+        except Exception as exc:
+            self.logger.error("短信网关响应非 JSON: %s", exc)
+            return "failed"
+
+        failed = data.get("failed") or []
+        if failed:
+            reason = ""
+            if isinstance(failed[0], dict):
+                reason = str(failed[0].get("reason") or "")
+            self.logger.error("短信发送失败: caseNo=%s reason=%s", case_no, reason)
+            return "failed"
+
+        inserted = int(data.get("inserted") or 0)
+        skipped = int(data.get("skipped") or 0)
+        if inserted == 1:
+            return "sent"
+        if skipped == 1:
+            return "skipped_duplicate"
+        self.logger.error("短信网关返回意外结果: caseNo=%s", case_no)
+        return "failed"
 
     def process_records(self, records: List[Dict[str, Any]], target_mobiles: List[str]) -> Dict[str, int]:
         """
@@ -745,36 +780,6 @@ class WcnrJqMonitor:
             self.logger.warning("本轮无可用接收号码，跳过短信发送")
             return stats
 
-        # 连接Oracle（带重试）
-        conn = None
-        for attempt in range(MAX_RETRIES):
-            try:
-                import oracledb
-
-                # 构建连接参数
-                connect_params = {
-                    "user": self.config.oracle_user,
-                    "password": self.config.oracle_password,
-                    "dsn": self.config.oracle_dsn
-                }
-
-                # 如果使用Thin模式，禁用各种不可用的功能
-                if not self.use_thick_mode:
-                    # Thin模式不需要额外参数，纯Python实现
-                    self.logger.debug("使用Oracle Thin模式连接")
-
-                conn = oracledb.connect(**connect_params)
-                mode_str = "Thick" if self.use_thick_mode else "Thin"
-                self.logger.info(f"Oracle连接成功 ({mode_str}模式)")
-                break
-            except Exception as e:
-                self.logger.warning(f"Oracle连接失败 (尝试 {attempt + 1}/{MAX_RETRIES}): {e}")
-                if attempt < MAX_RETRIES - 1:
-                    time.sleep(RETRY_DELAY * (attempt + 1))
-                else:
-                    self.logger.error("Oracle连接最终失败")
-                    return stats
-
         try:
             for record in records:
                 case_no = record.get("caseNo", "")
@@ -786,28 +791,18 @@ class WcnrJqMonitor:
                 content = self.build_sms_content(record)
 
                 for mobile in target_mobiles:
-                    # 去重检查
-                    if self.check_duplicate(conn, case_no, mobile):
-                        self.logger.info(f"跳过(已发送): caseNo={case_no}, mobile={mobile}")
-                        stats["skipped"] += 1
-                        continue
-
-                    # 发送短信
-                    if self.send_sms(conn, mobile, content, case_no):
-                        self.logger.info(f"短信已发送: caseNo={case_no}, mobile={mobile}")
+                    status = self.send_sms_via_gateway(mobile, content, case_no)
+                    if status == "sent":
+                        self.logger.info("短信已发送: caseNo=%s", case_no)
                         stats["sent"] += 1
+                    elif status == "skipped_duplicate":
+                        self.logger.info("跳过(已发送): caseNo=%s", case_no)
+                        stats["skipped"] += 1
                     else:
                         stats["failed"] += 1
 
-            conn.commit()
-
         except Exception as e:
             self.logger.error(f"处理记录异常: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                conn.close()
 
         return stats
 
@@ -880,6 +875,13 @@ def run(context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         "kingbase_password": "KINGBASE_PASSWORD",
         "kg_target_xqdm": "KG_TARGET_XQDM",
         "sms_mobiles": "SMS_MOBILES",
+        "sms_gateway_base_url": "SMS_GATEWAY_BASE_URL",
+        "sms_gateway_token": "SMS_GATEWAY_TOKEN",
+        "sms_gateway_biz": "SMS_GATEWAY_BIZ",
+        "sms_gateway_timeout_seconds": "SMS_GATEWAY_TIMEOUT_SECONDS",
+        "sms_gateway_max_retries": "SMS_GATEWAY_MAX_RETRIES",
+        # hours → minutes conversion happens in load_config_from_env
+        "sms_gateway_permanent_dedup_hours": "SMS_GATEWAY_PERMANENT_DEDUP_HOURS",
         "monitor_second_query_enabled": "MONITOR_SECOND_QUERY_ENABLED",
         "monitor_second_query_newori_subclass_no": "MONITOR_SECOND_QUERY_NEWORI_SUBCLASS_NO",
         "monitor_second_query_case_mark_no": "MONITOR_SECOND_QUERY_CASE_MARK_NO",
@@ -934,12 +936,10 @@ def main():
             logger.error("缺少登录凭证，请设置环境变量 LOGIN_USERNAME 和 LOGIN_PASSWORD")
             return 1
 
-        if not config.oracle_dsn or not config.oracle_user or not config.oracle_password:
-            logger.error("缺少Oracle配置，请设置环境变量 ORACLE_DSN, ORACLE_USER, ORACLE_PASSWORD")
-            return 1
-
-        if not config.sms_userid or not config.sms_password or not config.sms_userport:
-            logger.error("缺少短信网关配置，请设置环境变量 SMS_USERID, SMS_PASSWORD, SMS_USERPORT")
+        if not config.sms_gateway_base_url or not config.sms_gateway_token:
+            logger.error(
+                "缺少短信网关配置，请设置环境变量 SMS_GATEWAY_BASE_URL 和 SMS_GATEWAY_TOKEN"
+            )
             return 1
 
         if not config.has_kingbase_config() and not config.sms_mobiles:
