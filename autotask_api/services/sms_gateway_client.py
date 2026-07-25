@@ -144,10 +144,18 @@ class SmsGatewayClient:
         headers: dict[str, str],
         payload: dict[str, Any],
     ) -> requests.Response:
+        """POST with limited retries on connection/timeout/5xx errors.
+
+        Known audit-status caveat (do not "fix" by changing retry logic):
+        On ReadTimeout, the first request may already have succeeded on the
+        gateway while this client never saw the response. A retry then hits
+        gateway (eid, mobile) dedup and returns skipped=1, so the caller logs
+        ``skipped_duplicate`` instead of ``sent``. The SMS is still sent at most
+        once when dedup_minutes > 0; only the audit log status may be off.
+        """
         # Attempt 0 is the first try; then up to max_retries more on retryable errors.
         # Backoff sleeps: 1s, 3s, ... for successive retries.
         attempts = max(0, self._max_retries) + 1
-        last_exc: Exception | None = None
 
         for attempt in range(attempts):
             try:
@@ -158,7 +166,6 @@ class SmsGatewayClient:
                     timeout=(self._timeout, self._timeout),
                 )
             except (requests.ConnectionError, requests.Timeout) as exc:
-                last_exc = exc
                 if attempt + 1 >= attempts:
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
@@ -180,10 +187,8 @@ class SmsGatewayClient:
                 continue
             return response
 
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to reach SMS gateway: {last_exc}",
-        )
+        # Unreachable: every loop path returns or raises. Keep for type-checkers.
+        raise AssertionError("SMS gateway retry loop exited without response")  # pragma: no cover
 
     @staticmethod
     def _format_error_detail(response: requests.Response) -> str:

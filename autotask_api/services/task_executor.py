@@ -29,9 +29,6 @@ from autotask_api.services.task_fields import normalize_non_null_text_input
 from autotask_api.services.time_utils import now_shanghai
 
 
-settings = get_settings()
-
-
 def load_task_for_execution(db: Session, task_id: int) -> AlertTask:
     stmt = (
         select(AlertTask)
@@ -222,6 +219,9 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
             if gateway is None:
                 gateway = SmsGatewayClient()
             biz = gateway.resolve_biz(runtime_config)
+            # Read settings inside the function so get_settings.cache_clear() in tests takes effect
+            # (do not cache Settings at module import time).
+            permanent_dedup_hours = get_settings().sms_gateway_permanent_dedup_hours
             sent_for_row = 0
             failed_for_row = False
 
@@ -232,7 +232,7 @@ def execute_task_run(db: Session, task_id: int, payload: TaskRunRequest) -> Task
                         content=rendered_message,
                         eid=event_key,
                         biz=biz,
-                        dedup_minutes=settings.sms_gateway_permanent_dedup_hours * 60,
+                        dedup_minutes=permanent_dedup_hours * 60,
                     )
                     if outcome.status == "sent":
                         sent_for_row += 1
